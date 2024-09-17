@@ -21,6 +21,9 @@ public class InventoryItem {
     @NotBlank(message = "Item name is required")
     private String name;
 
+    @Column(length = 500)
+    private String description;
+
     @Column(nullable = false)
     @NotNull(message = "Quantity is required")
     @Min(value = 0, message = "Quantity cannot be negative")
@@ -29,10 +32,24 @@ public class InventoryItem {
     @Column(length = 100)
     private String location;
 
+    @ManyToOne
+    @JoinColumn(name = "enterprise_id")
+    private Enterprise enterprise;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-}
 
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}

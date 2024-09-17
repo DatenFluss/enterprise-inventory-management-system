@@ -37,6 +37,9 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Set<Role> roles;
 
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive;
+
     @ManyToOne
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
