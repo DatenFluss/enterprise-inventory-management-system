@@ -33,11 +33,11 @@ public class User {
     @Email(message = "Email should be valid")
     private String email;
 
-    @Column(name = "roles", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Set<Role> roles;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
 
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "active", nullable = false)
     private Boolean isActive;
 
     @ManyToOne
@@ -49,4 +49,9 @@ public class User {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Helper method to get permissions
+    public Set<Permission> getPermissions() {
+        return role.getPermissions();
+    }
 }

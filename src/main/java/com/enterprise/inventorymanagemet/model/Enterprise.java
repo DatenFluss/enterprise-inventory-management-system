@@ -11,7 +11,7 @@ import java.util.Set;
 
 @Entity
 @Data
-@Table(name = "enterprise")
+@Table(name = "enterprises")
 public class Enterprise {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
