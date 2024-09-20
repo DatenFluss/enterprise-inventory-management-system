@@ -2,10 +2,11 @@ package com.enterprise.inventorymanagemet.service;
 
 import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagemet.model.Enterprise;
-import com.enterprise.inventorymanagemet.model.Role;
+import com.enterprise.inventorymanagemet.model.RoleName;
 import com.enterprise.inventorymanagemet.model.User;
 import com.enterprise.inventorymanagemet.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagemet.repository.EnterpriseRepository;
+import com.enterprise.inventorymanagemet.repository.InventoryItemRepository;
 import com.enterprise.inventorymanagemet.repository.RoleRepository;
 import com.enterprise.inventorymanagemet.repository.UserRepository;
 import com.enterprise.inventorymanagemet.service.requests.EnterpriseRegistrationRequest;
@@ -21,22 +22,25 @@ import java.util.stream.Collectors;
  * Implementation of EnterpriseService interface.
  */
 @Service
-public class EnterpriseServiceImpl implements EnterpriseService {
-
-    private final EnterpriseRepository enterpriseRepository;
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
+public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseService {
 
     @Autowired
-    public EnterpriseServiceImpl(EnterpriseRepository enterpriseRepository,
-                                 UserRepository userRepository,
-                                 RoleRepository roleRepository,
-                                 PasswordEncoder passwordEncoder) {
-        this.enterpriseRepository = enterpriseRepository;
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.passwordEncoder = passwordEncoder;
+    public EnterpriseServiceImpl(
+            UserRepository userRepository,
+            InventoryItemRepository itemRepository,
+            RoleRepository roleRepository,
+            EnterpriseRepository enterpriseRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationFacade authenticationFacade
+    ) {
+        super(
+                userRepository,
+                itemRepository,
+                roleRepository,
+                enterpriseRepository,
+                passwordEncoder,
+                authenticationFacade
+        );
     }
 
     @Override
@@ -57,9 +61,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         owner.setIsActive(true);
         owner.setEnterprise(savedEnterprise);
 
-        Set<Role> roles = new HashSet<>();
-        roles.add(roleRepository.findByName("ENTERPRISE_OWNER"));
-        owner.setRoles(roles);
+        owner.setRole(roleRepository.findByName(RoleName.ENTERPRISE_OWNER).orElseThrow());
 
         userRepository.save(owner);
     }
@@ -147,4 +149,3 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         return dto;
     }
 }
-
