@@ -9,7 +9,7 @@ import com.enterprise.inventorymanagemet.repository.EnterpriseRepository;
 import com.enterprise.inventorymanagemet.repository.InventoryItemRepository;
 import com.enterprise.inventorymanagemet.repository.RoleRepository;
 import com.enterprise.inventorymanagemet.repository.UserRepository;
-import com.enterprise.inventorymanagemet.service.requests.EnterpriseRegistrationRequest;
+import com.enterprise.inventorymanagemet.model.request.EnterpriseRegistrationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

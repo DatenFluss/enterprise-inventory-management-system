@@ -1,4 +1,4 @@
-package com.enterprise.inventorymanagemet.service.requests;
+package com.enterprise.inventorymanagemet.model.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

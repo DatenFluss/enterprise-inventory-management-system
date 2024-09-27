@@ -1,4 +1,4 @@
-package com.enterprise.inventorymanagemet.model;
+package com.enterprise.inventorymanagemet.model.request;
 
 public enum RequestStatus {
     PENDING,

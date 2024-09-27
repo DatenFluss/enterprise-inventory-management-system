@@ -2,7 +2,7 @@ package com.enterprise.inventorymanagemet.service;
 
 import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagemet.model.dto.EnterpriseDTO;
-import com.enterprise.inventorymanagemet.service.requests.EnterpriseRegistrationRequest;
+import com.enterprise.inventorymanagemet.model.request.EnterpriseRegistrationRequest;
 
 import java.util.List;
 

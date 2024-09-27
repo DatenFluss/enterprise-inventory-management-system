@@ -43,9 +43,6 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .permitAll()
                 )
-                .oauth2Login((oauth2) -> oauth2
-                        .loginPage("/login")
-                )
                 .logout(LogoutConfigurer::permitAll);
         return http.build();
     }

@@ -1,27 +1,25 @@
 package com.enterprise.inventorymanagemet.service;
 
+import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagemet.model.InventoryItem;
-import com.enterprise.inventorymanagemet.model.request.ItemRequest;
 import com.enterprise.inventorymanagemet.model.User;
+import com.enterprise.inventorymanagemet.model.request.ItemRequest;
 import com.enterprise.inventorymanagemet.model.request.RequestStatus;
 import com.enterprise.inventorymanagemet.repository.*;
-import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
-public class InventoryItemServiceImpl extends ServiceCommon implements InventoryItemService {
+public class ItemRequestService extends ServiceCommon {
 
     private final ItemRequestRepository itemRequestRepository;
 
     @Autowired
-    public InventoryItemServiceImpl(
+    public ItemRequestService(
             UserRepository userRepository,
             InventoryItemRepository itemRepository,
             RoleRepository roleRepository,
@@ -39,41 +37,6 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
                 authenticationFacade
         );
         this.itemRequestRepository = itemRequestRepository;
-    }
-
-    @Override
-    public InventoryItem saveItem(InventoryItem item) {
-        return itemRepository.save(item);
-    }
-
-    @Override
-    public Optional<InventoryItem> getItemById(Long id) {
-        return itemRepository.findById(id);
-    }
-
-    @Override
-    public List<InventoryItem> getAllItems() {
-        return itemRepository.findAll();
-    }
-
-    @Override
-    public InventoryItem updateItem(Long id, InventoryItem updatedItem) {
-        return itemRepository.findById(id)
-                .map(item -> {
-                    item.setName(updatedItem.getName());
-                    item.setQuantity(updatedItem.getQuantity());
-                    item.setLocation(updatedItem.getLocation());
-                    return itemRepository.save(item);
-                })
-                .orElseThrow(() -> new ResourceNotFoundException("Item not found with id " + id));
-    }
-
-    @Override
-    public void deleteItem(Long id) {
-        if (!itemRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Item not found with id " + id);
-        }
-        itemRepository.deleteById(id);
     }
 
     /**
@@ -105,19 +68,39 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
     }
 
     /**
-     * View all available items.
+     * Manager or owner handles the item request (approve or reject).
      */
-    public List<InventoryItem> viewAvailableItems() {
+    public void handleItemRequest(Long requestId, RequestStatus status, String responseComments) {
         User currentUser = getCurrentAuthenticatedUser();
 
-        // Check if user has VIEW_AVAILABLE_ITEMS permission
-        if (!hasPermission(currentUser, "VIEW_AVAILABLE_ITEMS")) {
-            throw new AccessDeniedException("You do not have permission to view available items.");
+        if (!hasPermission(currentUser, "HANDLE_ITEM_REQUEST")) {
+            throw new AccessDeniedException("You do not have permission to handle item requests.");
         }
 
-        // Return available items
-        return itemRepository.findByQuantityGreaterThan(0);
-    }
+        ItemRequest itemRequest = itemRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item request not found"));
 
+        if (itemRequest.getStatus() != RequestStatus.PENDING) {
+            throw new IllegalStateException("Item request has already been processed.");
+        }
+
+        if (status == RequestStatus.APPROVED) {
+            InventoryItem item = itemRequest.getInventoryItem();
+            int availableQuantity = item.getQuantity();
+
+            if (itemRequest.getQuantity() > availableQuantity) {
+                throw new IllegalArgumentException("Not enough items in inventory to fulfill the request.");
+            }
+
+            // Update inventory quantity
+            item.setQuantity(availableQuantity - itemRequest.getQuantity());
+            itemRepository.save(item);
+        }
+
+        // Update request status and comments
+        itemRequest.setStatus(status);
+        itemRequest.setComments(responseComments);
+        itemRequestRepository.save(itemRequest);
+    }
 }
 

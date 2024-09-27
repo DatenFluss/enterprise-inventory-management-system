@@ -1,5 +1,7 @@
-package com.enterprise.inventorymanagemet.model;
+package com.enterprise.inventorymanagemet.model.request;
 
+import com.enterprise.inventorymanagemet.model.InventoryItem;
+import com.enterprise.inventorymanagemet.model.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
