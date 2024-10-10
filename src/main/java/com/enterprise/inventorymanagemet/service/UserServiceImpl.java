@@ -11,6 +11,7 @@ import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -19,7 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Optional;
 
-@Service
+@Service("userService")
 public class UserServiceImpl extends ServiceCommon implements UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
@@ -83,37 +84,20 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
      * Deactivate a user.
      * Managers cannot deactivate other managers or owners.
      */
+    @PreAuthorize("hasAuthority('DEACTIVATE_USER') or (hasAuthority('DEACTIVATE_NON_PRIVILEGED_USER') and !@userService.isPrivilegedUser(#targetUserId))")
     public void deactivateUser(Long targetUserId) {
-        User currentUser = getCurrentAuthenticatedUser();
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Check if current user has DEACTIVATE_USER permission
-        if (hasPermission(currentUser, "DEACTIVATE_USER")) {
-            // User can deactivate any user
-            targetUser.setIsActive(false);
-            userRepository.save(targetUser);
-            return;
-        }
-
-        // Check if current user has DEACTIVATE_NON_PRIVILEGED_USER permission
-        if (hasPermission(currentUser, "DEACTIVATE_NON_PRIVILEGED_USER")) {
-            // Ensure target user is not a manager or owner
-            if (!isPrivilegedUser(targetUser)) {
-                targetUser.setIsActive(false);
-                userRepository.save(targetUser);
-            } else {
-                throw new AccessDeniedException("You do not have permission to deactivate this user.");
-            }
-            return;
-        }
-
-        throw new AccessDeniedException("You do not have permission to deactivate users.");
+        targetUser.setActive(false);
+        userRepository.save(targetUser);
     }
 
-    private boolean isPrivilegedUser(User user) {
-        String roleName = String.valueOf(user.getRole().getName());
-        return roleName.equals("MANAGER") || roleName.equals("OWNER") || roleName.equals("ADMIN");
+    public boolean isPrivilegedUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String roleName = user.getRole().getName().toString();
+        return roleName.equals("ENTERPRISE_MANAGER") || roleName.equals("OWNER") || roleName.equals("ADMIN");
     }
 
     /**

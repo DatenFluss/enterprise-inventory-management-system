@@ -31,7 +31,7 @@ public class ItemRequest {
     @Column(nullable = false)
     private int quantity;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL)
     @Column(length = 20, nullable = false)
     private RequestStatus status;
 

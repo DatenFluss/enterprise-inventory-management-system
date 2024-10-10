@@ -58,7 +58,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         owner.setUsername(request.getOwnerUsername());
         owner.setPassword(passwordEncoder.encode(request.getOwnerPassword()));
         owner.setEmail(request.getOwnerEmail());
-        owner.setIsActive(true);
+        owner.setActive(true);
         owner.setEnterprise(savedEnterprise);
 
         owner.setRole(roleRepository.findByName(RoleName.ENTERPRISE_OWNER).orElseThrow());
