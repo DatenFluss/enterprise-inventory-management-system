@@ -7,7 +7,7 @@ import com.enterprise.inventorymanagemet.model.request.RequestStatus;
 import com.enterprise.inventorymanagemet.repository.*;
 import com.enterprise.inventorymanagemet.exceptions.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -42,33 +42,42 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
     }
 
     @Override
+    @PreAuthorize("hasAuthority('CREATE_ITEM')")
     public InventoryItem saveItem(InventoryItem item) {
+        if (itemExistsByName(item.getName())) {
+            throw new IllegalArgumentException("An item with this name already exists.");
+        }
         return itemRepository.save(item);
     }
 
     @Override
+    @PreAuthorize("hasAuthority('VIEW_ITEMS')")
     public Optional<InventoryItem> getItemById(Long id) {
         return itemRepository.findById(id);
     }
 
     @Override
+    @PreAuthorize("hasAuthority('VIEW_ITEMS')")
     public List<InventoryItem> getAllItems() {
         return itemRepository.findAll();
     }
 
     @Override
+    @PreAuthorize("hasAuthority('UPDATE_ITEM')")
     public InventoryItem updateItem(Long id, InventoryItem updatedItem) {
         return itemRepository.findById(id)
                 .map(item -> {
                     item.setName(updatedItem.getName());
                     item.setQuantity(updatedItem.getQuantity());
                     item.setLocation(updatedItem.getLocation());
+                    item.setDescription(updatedItem.getDescription());
                     return itemRepository.save(item);
                 })
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found with id " + id));
     }
 
     @Override
+    @PreAuthorize("hasAuthority('DELETE_ITEM')")
     public void deleteItem(Long id) {
         if (!itemRepository.existsById(id)) {
             throw new ResourceNotFoundException("Item not found with id " + id);
@@ -76,15 +85,30 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         itemRepository.deleteById(id);
     }
 
+    @Override
+    @PreAuthorize("hasAuthority('VIEW_ITEMS')")
+    public Optional<InventoryItem> getItemByName(String name) {
+        return itemRepository.findByName(name);
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority('VIEW_ITEMS')")
+    public List<InventoryItem> searchItemsByName(String keyword) {
+        return itemRepository.findByNameContainingIgnoreCase(keyword);
+    }
+
+    @Override
+    public boolean itemExistsByName(String name) {
+        return itemRepository.existsByName(name);
+    }
+
     /**
      * Employee requests an item.
      */
+    @Override
+    @PreAuthorize("hasAuthority('REQUEST_ITEM')")
     public void requestItem(Long itemId, int quantity, String comments) {
         User currentUser = getCurrentAuthenticatedUser();
-
-        if (!hasPermission(currentUser, "REQUEST_ITEM")) {
-            throw new AccessDeniedException("You do not have permission to request items.");
-        }
 
         InventoryItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found"));
@@ -107,17 +131,10 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
     /**
      * View all available items.
      */
+    @Override
+    @PreAuthorize("hasAuthority('VIEW_AVAILABLE_ITEMS')")
     public List<InventoryItem> viewAvailableItems() {
-        User currentUser = getCurrentAuthenticatedUser();
-
-        // Check if user has VIEW_AVAILABLE_ITEMS permission
-        if (!hasPermission(currentUser, "VIEW_AVAILABLE_ITEMS")) {
-            throw new AccessDeniedException("You do not have permission to view available items.");
-        }
-
-        // Return available items
         return itemRepository.findByQuantityGreaterThan(0);
     }
 
 }
-
