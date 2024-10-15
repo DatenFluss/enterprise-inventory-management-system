@@ -30,6 +30,6 @@ public class Enterprise {
     @Email(message = "Email should be valid")
     private String contactEmail;
 
-    @OneToMany(mappedBy = "enterprise")
+    @OneToMany(mappedBy = "enterprise", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Set<User> employees = new HashSet<>();
 }

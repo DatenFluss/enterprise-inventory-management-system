@@ -11,6 +11,7 @@ import com.enterprise.inventorymanagemet.repository.RoleRepository;
 import com.enterprise.inventorymanagemet.repository.UserRepository;
 import com.enterprise.inventorymanagemet.model.request.EnterpriseRegistrationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,28 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
     public void registerEnterprise(EnterpriseRegistrationRequest request) {
+        // Input Validation
+        if (request.getEnterpriseName() == null || request.getEnterpriseName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Enterprise name is required.");
+        }
+        if (request.getAddress() == null || request.getAddress().trim().isEmpty()) {
+            throw new IllegalArgumentException("Enterprise address is required.");
+        }
+        if (request.getContactEmail() == null || request.getContactEmail().trim().isEmpty()) {
+            throw new IllegalArgumentException("Enterprise contact email is required.");
+        }
+        if (request.getOwnerUsername() == null || request.getOwnerUsername().trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner username is required.");
+        }
+        if (request.getOwnerPassword() == null || request.getOwnerPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner password is required.");
+        }
+        if (request.getOwnerEmail() == null || request.getOwnerEmail().trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner email is required.");
+        }
+
         Enterprise enterprise = new Enterprise();
         enterprise.setName(request.getEnterpriseName());
         enterprise.setAddress(request.getAddress());
@@ -60,15 +82,15 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         owner.setEmail(request.getOwnerEmail());
         owner.setActive(true);
         owner.setEnterprise(savedEnterprise);
-
         owner.setRole(roleRepository.findByName(RoleName.ENTERPRISE_OWNER).orElseThrow());
 
         userRepository.save(owner);
     }
 
     @Override
+    @Transactional
     public EnterpriseDTO getEnterpriseById(Long enterpriseId) throws ResourceNotFoundException {
-        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+        Enterprise enterprise = enterpriseRepository.findByIdWithEmployees(enterpriseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found with ID: " + enterpriseId));
 
         return convertToDTO(enterprise);
@@ -76,11 +98,12 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     public List<EnterpriseDTO> getAllEnterprises() {
-        List<Enterprise> enterprises = enterpriseRepository.findAll();
+        List<Enterprise> enterprises = enterpriseRepository.findAllWithEmployees();
         return enterprises.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
+
 
     @Override
     @Transactional
@@ -99,6 +122,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     @Transactional
+    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
     public void deleteEnterprise(Long enterpriseId) throws ResourceNotFoundException {
         if (!enterpriseRepository.existsById(enterpriseId)) {
             throw new ResourceNotFoundException("Enterprise not found with ID: " + enterpriseId);
@@ -141,9 +165,12 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         dto.setAddress(enterprise.getAddress());
         dto.setContactEmail(enterprise.getContactEmail());
 
-        Set<Long> employeeIds = enterprise.getEmployees().stream()
-                .map(User::getId)
-                .collect(Collectors.toSet());
+        Set<Long> employeeIds = Collections.emptySet();
+        if (enterprise.getEmployees() != null) {
+            employeeIds = enterprise.getEmployees().stream()
+                    .map(User::getId)
+                    .collect(Collectors.toSet());
+        }
         dto.setEmployeeIds(employeeIds);
 
         return dto;
