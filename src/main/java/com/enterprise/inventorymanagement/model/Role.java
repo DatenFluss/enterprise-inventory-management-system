@@ -15,9 +15,8 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.ORDINAL)
-    @Column(length = 50, unique = true, nullable = false)
-    private RoleName name;
+    @Column(length = 100, unique = true, nullable = false)
+    private String name;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

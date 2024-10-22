@@ -67,17 +67,17 @@ public class EnterpriseServiceTest {
 
         // Create roles
         Role adminRole = new Role();
-        adminRole.setName(RoleName.ADMIN);
+        adminRole.setName(RoleName.ADMIN.name());
         adminRole.setPermissions(Set.of(manageEnterprisePermission, viewEnterprisePermission));
         roleRepository.save(adminRole);
 
         Role ownerRole = new Role();
-        ownerRole.setName(RoleName.ENTERPRISE_OWNER);
+        ownerRole.setName(RoleName.ENTERPRISE_OWNER.name());
         ownerRole.setPermissions(Set.of(manageEnterprisePermission, viewEnterprisePermission));
         roleRepository.save(ownerRole);
 
         Role employeeRole = new Role();
-        employeeRole.setName(RoleName.EMPLOYEE);
+        employeeRole.setName(RoleName.EMPLOYEE.name());
         employeeRole.setPermissions(Set.of(viewEnterprisePermission));
         roleRepository.save(employeeRole);
 
@@ -211,7 +211,7 @@ public class EnterpriseServiceTest {
         employee.setPassword(passwordEncoder.encode("password"));
         employee.setEmail("employee1@example.com");
         employee.setActive(true);
-        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE).orElseThrow());
+        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE.name()).orElseThrow());
         userRepository.save(employee);
 
         // Act
@@ -236,7 +236,7 @@ public class EnterpriseServiceTest {
         employee.setPassword(passwordEncoder.encode("password"));
         employee.setEmail("employee2@example.com");
         employee.setActive(true);
-        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE).orElseThrow());
+        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE.name()).orElseThrow());
         employee.setEnterprise(enterprise);
         userRepository.save(employee);
 

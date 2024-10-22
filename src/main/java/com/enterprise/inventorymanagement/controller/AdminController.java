@@ -1,6 +1,7 @@
 package com.enterprise.inventorymanagement.controller;
 
 import com.enterprise.inventorymanagement.model.User;
+import com.enterprise.inventorymanagement.model.dto.UserDTO;
 import com.enterprise.inventorymanagement.service.UserService;
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
 import jakarta.validation.Valid;
@@ -30,9 +31,8 @@ public class AdminController {
     }
 
     @GetMapping("/users/{id}")
-    public User getUserById(@PathVariable Long id) {
-        return userService.getUserById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
+    public UserDTO getUserById(@PathVariable Long id) {
+        return userService.getUserById(id);
     }
 
     @PostMapping("/users")
