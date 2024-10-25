@@ -2,8 +2,8 @@ package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.model.User;
 import com.enterprise.inventorymanagement.model.Role;
-import com.enterprise.inventorymanagement.model.Permission;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
@@ -29,7 +29,7 @@ public class UserDetailsImpl implements UserDetails {
     public static UserDetailsImpl build(User user) {
         Role role = user.getRole();
         Collection<GrantedAuthority> authorities = role.getPermissions().stream()
-                .map(permission -> (GrantedAuthority) permission::getName)
+                .map(permission -> new SimpleGrantedAuthority(permission.getName()))
                 .collect(Collectors.toList());
 
         return new UserDetailsImpl(
