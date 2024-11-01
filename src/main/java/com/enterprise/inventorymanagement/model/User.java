@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -44,6 +45,13 @@ public class User {
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
+    @OneToMany(mappedBy = "manager")
+    private Set<User> subordinates = new HashSet<>();
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -53,5 +61,25 @@ public class User {
     // Helper method to get permissions
     public Set<Permission> getPermissions() {
         return role.getPermissions();
+    }
+
+    public void addSubordinate(User subordinate) {
+        subordinates.add(subordinate);
+        subordinate.setManager(this);
+    }
+
+    public void removeSubordinate(User subordinate) {
+        subordinates.remove(subordinate);
+        subordinate.setManager(null);
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", managerId=" + (manager != null ? manager.getId() : null) +
+                '}';
     }
 }

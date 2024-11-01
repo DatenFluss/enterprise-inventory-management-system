@@ -175,7 +175,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         }
 
         // Update the target user's role to MANAGER
-        Role managerRole = roleRepository.findByName(RoleName.ENTERPRISE_MANAGER.label)
+        Role managerRole = roleRepository.findByName(RoleName.MANAGER.label)
                 .orElseThrow(() -> new IllegalStateException("MANAGER role not found"));
 
         targetUser.setRole(managerRole);

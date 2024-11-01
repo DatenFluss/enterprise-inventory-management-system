@@ -76,19 +76,19 @@ public class InventoryItemServiceTest {
 
         // Create roles
         Role adminRole = new Role();
-        adminRole.setName(RoleName.ADMIN);
+        adminRole.setName(RoleName.ADMIN.label);
         adminRole.setPermissions(Set.of(
                 createItemPermission, updateItemPermission, deleteItemPermission, viewItemsPermission
         ));
         roleRepository.save(adminRole);
 
         Role managerRole = new Role();
-        managerRole.setName(RoleName.ENTERPRISE_MANAGER);
+        managerRole.setName(RoleName.MANAGER.label);
         managerRole.setPermissions(Set.of(updateItemPermission, viewItemsPermission));
         roleRepository.save(managerRole);
 
         Role employeeRole = new Role();
-        employeeRole.setName(RoleName.EMPLOYEE);
+        employeeRole.setName(RoleName.EMPLOYEE.label);
         employeeRole.setPermissions(Set.of(viewItemsPermission, requestItemPermission, viewAvailableItemsPermission));
         roleRepository.save(employeeRole);
 

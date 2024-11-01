@@ -72,7 +72,7 @@ public class EnterpriseServiceTest {
         roleRepository.save(adminRole);
 
         Role ownerRole = new Role();
-        ownerRole.setName(RoleName.ENTERPRISE_OWNER.name());
+        ownerRole.setName(RoleName.OWNER.name());
         ownerRole.setPermissions(Set.of(manageEnterprisePermission, viewEnterprisePermission));
         roleRepository.save(ownerRole);
 
@@ -135,7 +135,7 @@ public class EnterpriseServiceTest {
 
         User owner = userRepository.findByUsername("owner").orElseThrow();
         assertEquals("owner@techcorp.com", owner.getEmail());
-        assertEquals(RoleName.ENTERPRISE_OWNER, owner.getRole().getName());
+        assertEquals(RoleName.OWNER, owner.getRole().getName());
         assertEquals(enterprise.getId(), owner.getEnterprise().getId());
     }
 
