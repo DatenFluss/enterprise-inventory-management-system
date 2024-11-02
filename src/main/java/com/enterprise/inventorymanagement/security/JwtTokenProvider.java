@@ -38,9 +38,14 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
-        return Jwts.builder().subject(Long.toString(userPrincipal.getId()))
+        return Jwts.builder()
+                .subject(String.valueOf(userPrincipal.getId()))
                 .claim("username", userPrincipal.getUsername())
-                .claim("role", userPrincipal.getAuthorities()).issuedAt(now).expiration(expiryDate)
+                .claim("email", userPrincipal.getEmail())
+                .claim("role", userPrincipal.getRole())
+                .claim("enterpriseId", userPrincipal.getEnterpriseId())
+                .issuedAt(now)
+                .expiration(expiryDate)
                 .signWith(key)
                 .compact();
     }

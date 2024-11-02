@@ -1,7 +1,10 @@
 package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
+import com.enterprise.inventorymanagement.model.RoleName;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
+import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
+import com.enterprise.inventorymanagement.model.dto.UserDTO;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
 
 import java.util.List;
@@ -69,5 +72,10 @@ public interface EnterpriseService {
      * @throws ResourceNotFoundException if the enterprise or employee is not found.
      */
     void removeEmployeeFromEnterprise(Long enterpriseId, Long employeeId) throws ResourceNotFoundException;
+
+    List<EnterpriseInviteDTO> getInvitesForUser(Long userId);
+    void createInvite(Long enterpriseId, Long userId, RoleName role, Long inviterId);
+    void handleInviteResponse(Long inviteId, Long userId, boolean accepted);
+    List<UserDTO> getEnterpriseEmployees(Long enterpriseId);
 }
 

@@ -1,18 +1,23 @@
 package com.enterprise.inventorymanagement.controller;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
+import com.enterprise.inventorymanagement.model.EnterpriseInvite;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
+import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
+import com.enterprise.inventorymanagement.model.dto.UserDTO;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
 import com.enterprise.inventorymanagement.service.EnterpriseService;
+import com.enterprise.inventorymanagement.service.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/enterprise")
+@RequestMapping("/api/enterprises")
 public class EnterpriseController {
 
     private final EnterpriseService enterpriseService;
@@ -107,6 +112,83 @@ public class EnterpriseController {
         try {
             enterpriseService.removeEmployeeFromEnterprise(enterpriseId, employeeId);
             return ResponseEntity.ok("Employee removed from enterprise successfully");
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Get enterprise invites for a user
+     */
+    @GetMapping("/invites")
+    public ResponseEntity<?> getEnterpriseInvites(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            List<EnterpriseInviteDTO> invites = enterpriseService.getInvitesForUser(userDetails.getId());
+            return ResponseEntity.ok(invites);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Create an invite for a user to join an enterprise
+     */
+    @PostMapping("/{enterpriseId}/invites")
+    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
+    public ResponseEntity<?> createInvite(
+            @PathVariable Long enterpriseId,
+            @Valid @RequestBody EnterpriseInvite request,
+            @AuthenticationPrincipal UserDetailsImpl inviter) {
+        try {
+            enterpriseService.createInvite(enterpriseId, request.getUserId(), request.getRole(), inviter.getId());
+            return ResponseEntity.ok("Invite sent successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * Handle invite response (accept/decline)
+     */
+    @PostMapping("/invites/{inviteId}/{action}")
+    public ResponseEntity<?> handleInvite(
+            @PathVariable Long inviteId,
+            @PathVariable String action,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            boolean accepted = "accept".equalsIgnoreCase(action);
+            enterpriseService.handleInviteResponse(inviteId, userDetails.getId(), accepted);
+            return ResponseEntity.ok(accepted ? "Invite accepted" : "Invite declined");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * Get current user's enterprise
+     */
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrentEnterprise(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            if (userDetails.getEnterpriseId() == null) {
+                return ResponseEntity.notFound().build();
+            }
+            EnterpriseDTO enterprise = enterpriseService.getEnterpriseById(userDetails.getEnterpriseId());
+            return ResponseEntity.ok(enterprise);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Get all employees in an enterprise
+     */
+    @GetMapping("/{enterpriseId}/employees")
+    @PreAuthorize("hasAnyAuthority('VIEW_USERS', 'MANAGE_USERS')")
+    public ResponseEntity<?> getEnterpriseEmployees(@PathVariable Long enterpriseId) {
+        try {
+            List<UserDTO> employees = enterpriseService.getEnterpriseEmployees(enterpriseId);
+            return ResponseEntity.ok(employees);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(e.getMessage());
         }

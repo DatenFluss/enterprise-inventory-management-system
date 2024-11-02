@@ -73,6 +73,14 @@ public class User {
         subordinate.setManager(null);
     }
 
+    public Long getEnterpriseId() {
+        return enterprise != null ? enterprise.getId() : null;
+    }
+
+    public Long getManagerId() {
+        return manager != null ? manager.getId() : null;
+    }
+
     @Override
     public String toString() {
         return "User{" +
