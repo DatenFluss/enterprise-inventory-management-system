@@ -63,6 +63,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
 
         // Create new user
         User user = new User();
+        user.setFullName(request.getFullName());
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
@@ -358,6 +359,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
     private UserDTO convertToDTO(User user) {
         return UserDTO.builder()
                 .id(user.getId())
+                .fullName(user.getFullName())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .active(user.getActive())

@@ -10,6 +10,7 @@ public class JwtResponse {
     private String token;
     private String type = "Bearer";
     private Long id;
+    private String fullName;
     private String username;
     private String email;
     private Long enterpriseId;
@@ -19,9 +20,10 @@ public class JwtResponse {
         this.token = token;
     }
 
-    public JwtResponse(String token, Long id, String username, String email, Long enterpriseId, String role) {
+    public JwtResponse(String token, Long id, String fullName, String username, String email, Long enterpriseId, String role) {
         this.token = token;
         this.id = id;
+        this.fullName = fullName;
         this.username = username;
         this.email = email;
         this.enterpriseId = enterpriseId;
