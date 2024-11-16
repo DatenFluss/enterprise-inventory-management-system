@@ -50,6 +50,10 @@ public class User {
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
 
+    @ManyToOne
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private User manager;

@@ -5,14 +5,12 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Entity
 @Data
 @Table(name = "inventory_items")
 public class InventoryItem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,15 +30,44 @@ public class InventoryItem {
     @Column(length = 100)
     private String location;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Helper methods
+    public Long getWarehouseId() {
+        return warehouse != null ? warehouse.getId() : null;
+    }
+
+    public String getWarehouseName() {
+        return warehouse != null ? warehouse.getName() : null;
+    }
+
+    public Long getDepartmentId() {
+        return department != null ? department.getId() : null;
+    }
+
+    public String getDepartmentName() {
+        return department != null ? department.getName() : null;
+    }
+
+    public Long getEnterpriseId() {
+        return enterprise != null ? enterprise.getId() : null;
+    }
 
     @PrePersist
     protected void onCreate() {

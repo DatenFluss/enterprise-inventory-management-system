@@ -5,6 +5,7 @@ public enum RoleName {
     OWNER("OWNER"),
     MANAGER("MANAGER"),
     EMPLOYEE ("EMPLOYEE"),
+    WAREHOUSE_OPERATOR ("WAREHOUSE_OPERATOR"),
     UNAFFILIATED ("UNAFFILIATED");
 
     public final String label;
