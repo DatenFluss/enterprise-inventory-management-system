@@ -170,11 +170,11 @@ public class UserController {
     /**
      * Get Enterprise Invites for User
      */
-    @GetMapping("/invites")
-    public ResponseEntity<?> getUserInvites(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        List<EnterpriseInviteDTO> invites = userService.getUserInvites(userDetails.getId());
-        return ResponseEntity.ok(invites);
-    }
+    //@GetMapping("/invites")
+    //public ResponseEntity<?> getUserInvites(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+    //    List<EnterpriseInviteDTO> invites = userService.getUserInvites(userDetails.getId());
+    //    return ResponseEntity.ok(invites);
+    //}
 
     /**
      * Respond to Enterprise Invite

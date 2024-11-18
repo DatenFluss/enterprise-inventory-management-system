@@ -28,7 +28,7 @@ public interface UserService {
     UserDTO getCurrentUser();
     UserDTO getUserManager(Long userId);
     List<UserDTO> getSubordinates(Long userId);
-    List<EnterpriseInviteDTO> getUserInvites(Long userId);
+    //List<EnterpriseInviteDTO> getUserInvites(Long userId);
     void handleInviteResponse(Long inviteId, Long userId, boolean accepted);
     void assignManager(Long userId, Long managerId);
     boolean isUserInEnterprise(Long userId, Long enterpriseId);

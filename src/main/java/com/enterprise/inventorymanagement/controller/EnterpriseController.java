@@ -2,9 +2,12 @@ package com.enterprise.inventorymanagement.controller;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagement.model.EnterpriseInvite;
+import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
 import com.enterprise.inventorymanagement.model.dto.UserDTO;
+import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
+import com.enterprise.inventorymanagement.model.request.EnterpriseInviteRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
 import com.enterprise.inventorymanagement.service.EnterpriseService;
 import com.enterprise.inventorymanagement.service.UserDetailsImpl;
@@ -123,7 +126,7 @@ public class EnterpriseController {
     @GetMapping("/invites")
     public ResponseEntity<?> getEnterpriseInvites(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            List<EnterpriseInviteDTO> invites = enterpriseService.getInvitesForUser(userDetails.getId());
+            List<EnterpriseInviteDTO> invites = enterpriseService.getInvitesForUser(userDetails.getEmail());
             return ResponseEntity.ok(invites);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -133,14 +136,21 @@ public class EnterpriseController {
     /**
      * Create an invite for a user to join an enterprise
      */
-    @PostMapping("/{enterpriseId}/invites")
-    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
+    /**
+     * Create an invite for a user to join an enterprise
+     */
+    @PostMapping("/invites")
+    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISES')")
     public ResponseEntity<?> createInvite(
-            @PathVariable Long enterpriseId,
-            @Valid @RequestBody EnterpriseInvite request,
+            @Valid @RequestBody EnterpriseInviteRequest request,
             @AuthenticationPrincipal UserDetailsImpl inviter) {
         try {
-            enterpriseService.createInvite(enterpriseId, request.getUserId(), request.getRole(), inviter.getId());
+            Long enterpriseId = inviter.getEnterpriseId();
+            if (enterpriseId == null) {
+                return ResponseEntity.status(400).body("User is not associated with any enterprise");
+            }
+
+            enterpriseService.createInviteByEmail(enterpriseId, request.getEmail(), request.getRole(), inviter.getId());
             return ResponseEntity.ok("Invite sent successfully");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -156,8 +166,13 @@ public class EnterpriseController {
             @PathVariable String action,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            boolean accepted = "accept".equalsIgnoreCase(action);
-            enterpriseService.handleInviteResponse(inviteId, userDetails.getId(), accepted);
+            if (!action.equalsIgnoreCase("accept") && !action.equalsIgnoreCase("decline")) {
+                return ResponseEntity.badRequest().body("Invalid action. Use 'accept' or 'decline'");
+            }
+
+            boolean accepted = action.equalsIgnoreCase("accept");
+            enterpriseService.handleInviteResponse(inviteId, userDetails.getEmail(), accepted);
+
             return ResponseEntity.ok(accepted ? "Invite accepted" : "Invite declined");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -183,14 +198,53 @@ public class EnterpriseController {
     /**
      * Get all employees in an enterprise
      */
-    @GetMapping("/{enterpriseId}/employees")
+    @GetMapping("/employees")
     @PreAuthorize("hasAnyAuthority('VIEW_USERS', 'MANAGE_USERS')")
-    public ResponseEntity<?> getEnterpriseEmployees(@PathVariable Long enterpriseId) {
+    public ResponseEntity<?> getEnterpriseEmployees(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
+            Long enterpriseId = userDetails.getEnterpriseId();
+            if (enterpriseId == null) {
+                return ResponseEntity.notFound().build();
+            }
             List<UserDTO> employees = enterpriseService.getEnterpriseEmployees(enterpriseId);
             return ResponseEntity.ok(employees);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/departments")
+    @PreAuthorize("hasAnyAuthority('VIEW_DEPARTMENTS', 'MANAGE_DEPARTMENTS')")
+    public ResponseEntity<?> getEnterpriseDepartments(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            Long enterpriseId = userDetails.getEnterpriseId();
+            if (enterpriseId == null) {
+                return ResponseEntity.notFound().build();
+            }
+            List<DepartmentDTO> departments = enterpriseService.getEnterpriseDepartments(enterpriseId);
+            return ResponseEntity.ok(departments);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Create a new department in an enterprise
+     */
+    @PostMapping("/departments")
+    @PreAuthorize("hasAuthority('MANAGE_DEPARTMENTS')")
+    public ResponseEntity<?> createDepartment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @Valid @RequestBody DepartmentRequest request) {
+        try {
+            Long enterpriseId = userDetails.getEnterpriseId();
+            if (enterpriseId == null) {
+                return ResponseEntity.status(400).body("User is not associated with any enterprise");
+            }
+            DepartmentDTO department = enterpriseService.createDepartment(enterpriseId, request);
+            return ResponseEntity.ok(department);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

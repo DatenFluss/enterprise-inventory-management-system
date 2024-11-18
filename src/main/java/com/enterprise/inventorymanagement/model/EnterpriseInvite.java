@@ -20,8 +20,8 @@ public class EnterpriseInvite {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(nullable = false)
+    private String email;
 
     @Column(name = "enterprise_id", nullable = false)
     private Long enterpriseId;
@@ -32,6 +32,10 @@ public class EnterpriseInvite {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private RoleName role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private InviteStatus status;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

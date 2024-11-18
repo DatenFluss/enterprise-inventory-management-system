@@ -69,7 +69,6 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
                 .map(item -> {
                     item.setName(updatedItem.getName());
                     item.setQuantity(updatedItem.getQuantity());
-                    item.setLocation(updatedItem.getLocation());
                     item.setDescription(updatedItem.getDescription());
                     return itemRepository.save(item);
                 })

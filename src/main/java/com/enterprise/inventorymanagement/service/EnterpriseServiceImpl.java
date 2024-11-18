@@ -1,13 +1,12 @@
 package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
-import com.enterprise.inventorymanagement.model.Enterprise;
-import com.enterprise.inventorymanagement.model.EnterpriseInvite;
-import com.enterprise.inventorymanagement.model.RoleName;
-import com.enterprise.inventorymanagement.model.User;
+import com.enterprise.inventorymanagement.model.*;
+import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
 import com.enterprise.inventorymanagement.model.dto.UserDTO;
+import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
 import com.enterprise.inventorymanagement.repository.*;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +26,7 @@ import java.util.stream.Collectors;
 public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseService {
 
     private final InviteRepository inviteRepository;
+    private final DepartmentRepository departmentRepository;
 
     @Autowired
     public EnterpriseServiceImpl(
@@ -35,6 +35,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
             RoleRepository roleRepository,
             EnterpriseRepository enterpriseRepository,
             InviteRepository inviteRepository,
+            DepartmentRepository departmentRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationFacade authenticationFacade
     ) {
@@ -47,6 +48,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 authenticationFacade
         );
         this.inviteRepository = inviteRepository;
+        this.departmentRepository = departmentRepository;
     }
 
     @Override
@@ -164,8 +166,8 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     @Transactional
-    public List<EnterpriseInviteDTO> getInvitesForUser(Long userId) {
-        List<EnterpriseInvite> invites = inviteRepository.findByUserId(userId);
+    public List<EnterpriseInviteDTO> getInvitesForUser(String email) {
+        List<EnterpriseInvite> invites = inviteRepository.findByEmailAndStatus(email, InviteStatus.PENDING);
         return invites.stream()
                 .map(this::convertToInviteDTO)
                 .collect(Collectors.toList());
@@ -173,44 +175,17 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     @Transactional
-    public void createInvite(Long enterpriseId, Long userId, RoleName role, Long inviterId) {
-        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        // Validate user isn't already in an enterprise
-        if (user.getEnterprise() != null) {
-            throw new IllegalStateException("User is already part of an enterprise");
-        }
-
-        // Check if invite already exists
-        if (inviteRepository.existsByUserIdAndEnterpriseId(userId, enterpriseId)) {
-            throw new IllegalStateException("Invite already exists");
-        }
-
-        EnterpriseInvite invite = new EnterpriseInvite();
-        invite.setUserId(userId);
-        invite.setEnterpriseId(enterpriseId);
-        invite.setInviterId(inviterId);
-        invite.setRole(role);
-
-        inviteRepository.save(invite);
-    }
-
-    @Override
-    @Transactional
-    public void handleInviteResponse(Long inviteId, Long userId, boolean accepted) {
+    public void handleInviteResponse(Long inviteId, String userEmail, boolean accepted) {
         EnterpriseInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
-        if (!invite.getUserId().equals(userId)) {
+        if (!invite.getEmail().equals(userEmail)) {
             throw new AccessDeniedException("Not authorized to handle this invite");
         }
 
         if (accepted) {
-            User user = userRepository.findById(userId)
+            // Find or create user
+            User user = userRepository.findByEmailAndActive(userEmail, true)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
             Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
@@ -221,9 +196,49 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found")));
 
             userRepository.save(user);
+            invite.setStatus(InviteStatus.ACCEPTED);
+        } else {
+            invite.setStatus(InviteStatus.DECLINED);
         }
 
-        inviteRepository.delete(invite);
+        inviteRepository.save(invite);
+    }
+
+    @Override
+    @Transactional
+    public void createInviteByEmail(Long enterpriseId, String email, RoleName role, Long inviterId) {
+        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+
+        // Check if user with this email already exists in the enterprise
+        Optional<User> existingUser = userRepository.findByEmailAndActive(email, true);
+        if (existingUser.isPresent() && existingUser.get().getEnterprise() != null) {
+            throw new IllegalArgumentException("User is already part of an enterprise");
+        }
+
+        // Check if invite already exists
+        if (inviteRepository.existsByEmailAndEnterpriseIdAndStatus(email, enterpriseId, InviteStatus.PENDING)) {
+            throw new IllegalArgumentException("Invite already exists for this email");
+        }
+
+        EnterpriseInvite invite = new EnterpriseInvite();
+        invite.setEmail(email);
+        invite.setEnterpriseId(enterpriseId);
+        invite.setInviterId(inviterId);
+        invite.setRole(role);
+        invite.setStatus(InviteStatus.PENDING);
+
+        inviteRepository.save(invite);
+    }
+
+    public List<DepartmentDTO> getEnterpriseDepartments(Long enterpriseId) {
+        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+
+        return departmentRepository.findByEnterpriseId(enterpriseId)
+                .stream()
+                .map(this::convertToDepartmentDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -235,6 +250,37 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 .stream()
                 .map(this::convertToUserDTO)
                 .collect(Collectors.toList());
+    }
+
+    public DepartmentDTO createDepartment(Long enterpriseId, DepartmentRequest request) {
+        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+
+        // Check if department name already exists in this enterprise
+        if (departmentRepository.existsByNameAndEnterpriseId(request.getName(), enterpriseId)) {
+            throw new IllegalArgumentException("Department with this name already exists in the enterprise");
+        }
+
+        Department department = new Department();
+        department.setName(request.getName());
+        department.setDescription(request.getDescription());
+        department.setEnterprise(enterprise);
+
+        // If manager ID is provided, assign the manager
+        if (request.getManagerId() != null) {
+            User manager = userRepository.findById(request.getManagerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Manager not found"));
+
+            // Verify manager belongs to the same enterprise
+            if (!enterpriseId.equals(manager.getEnterprise().getId())) {
+                throw new IllegalArgumentException("Manager must belong to the same enterprise");
+            }
+
+            department.setManager(manager);
+        }
+
+        Department savedDepartment = departmentRepository.save(department);
+        return convertToDepartmentDTO(savedDepartment);
     }
 
     private EnterpriseInviteDTO convertToInviteDTO(EnterpriseInvite invite) {
@@ -282,5 +328,15 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         dto.setEmployeeIds(employeeIds);
 
         return dto;
+    }
+
+    private DepartmentDTO convertToDepartmentDTO(Department department) {
+        return DepartmentDTO.builder()
+                .id(department.getId())
+                .name(department.getName())
+                .managerName(department.getManager() != null ? department.getManager().getFullName() : null)
+                .employeeCount(department.getEmployees().size())
+                .itemCount(department.getItems().size())
+                .build();
     }
 }

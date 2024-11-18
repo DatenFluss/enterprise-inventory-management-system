@@ -247,13 +247,13 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    public List<EnterpriseInviteDTO> getUserInvites(Long userId) {
-        return inviteRepository.findByUserId(userId)
-                .stream()
-                .map(this::convertToInviteDTO)
-                .collect(Collectors.toList());
-    }
+    //@Override
+    //public List<EnterpriseInviteDTO> getUserInvites(Long userId) {
+    //    return inviteRepository.findByUserId(userId)
+    //            .stream()
+    //            .map(this::convertToInviteDTO)
+    //            .collect(Collectors.toList());
+    //}
 
     @Override
     @Transactional
@@ -261,9 +261,9 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         EnterpriseInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
-        if (!invite.getUserId().equals(userId)) {
-            throw new AccessDeniedException("Not authorized to handle this invite");
-        }
+        //if (!invite.getUserId().equals(userId)) {
+        //    throw new AccessDeniedException("Not authorized to handle this invite");
+        //}
 
         if (accepted) {
             User user = userRepository.findById(userId)

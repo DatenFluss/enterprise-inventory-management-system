@@ -27,9 +27,6 @@ public class InventoryItem {
     @Min(value = 0, message = "Quantity cannot be negative")
     private Integer quantity;
 
-    @Column(length = 100)
-    private String location;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
