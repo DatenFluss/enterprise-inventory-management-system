@@ -1,6 +1,5 @@
 package com.enterprise.inventorymanagement.security;
 
-
 import com.enterprise.inventorymanagement.model.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -10,7 +9,6 @@ import java.util.Collection;
 import java.util.stream.Collectors;
 
 public class CustomUserDetails implements UserDetails {
-
     private final User user;
 
     public CustomUserDetails(User user) {
@@ -19,15 +17,14 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Map permissions to GrantedAuthority
         return user.getPermissions().stream()
                 .map(permission -> new SimpleGrantedAuthority(permission.getName()))
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
     }
 
     @Override
     public String getPassword() {
-        return null;
+        return user.getPassword();
     }
 
     @Override
@@ -37,22 +34,46 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        return UserDetails.super.isAccountNonExpired();
+        return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return UserDetails.super.isAccountNonLocked();
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return UserDetails.super.isCredentialsNonExpired();
+        return true;
     }
 
     @Override
     public boolean isEnabled() {
-        return UserDetails.super.isEnabled();
+        return user.getActive();
+    }
+
+    public Long getId() {
+        return user.getId();
+    }
+
+    public String getEmail() {
+        return user.getEmail();
+    }
+
+    public String getFullName() {
+        return user.getFullName();
+    }
+
+    public Long getEnterpriseId() {
+        return user.getEnterpriseId();
+    }
+
+    public Long getManagerId() {
+        return user.getManagerId();
+    }
+
+    public String getRole() {
+        return user.getRole() != null ? user.getRole().getName() : null;
     }
 }
 

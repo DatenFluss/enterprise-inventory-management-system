@@ -46,7 +46,7 @@ public class User {
     @Column(name = "active", nullable = false)
     private Boolean active;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
 
@@ -84,6 +84,16 @@ public class User {
 
     public Long getEnterpriseId() {
         return enterprise != null ? enterprise.getId() : null;
+    }
+
+    public void setEnterpriseId(Long enterpriseId) {
+        if (enterpriseId == null) {
+            this.enterprise = null;
+        } else {
+            Enterprise e = new Enterprise();
+            e.setId(enterpriseId);
+            this.enterprise = e;
+        }
     }
 
     public Long getManagerId() {

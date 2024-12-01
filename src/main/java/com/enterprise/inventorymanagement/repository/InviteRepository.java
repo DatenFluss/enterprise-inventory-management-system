@@ -16,4 +16,5 @@ public interface InviteRepository extends JpaRepository<EnterpriseInvite, Long> 
     List<EnterpriseInvite> findByEnterpriseId(Long enterpriseId);
 
     List<EnterpriseInvite> findByEmailAndStatus(String email, InviteStatus status);
+    Optional<EnterpriseInvite> findByIdAndStatus(Long id, InviteStatus status);
 }

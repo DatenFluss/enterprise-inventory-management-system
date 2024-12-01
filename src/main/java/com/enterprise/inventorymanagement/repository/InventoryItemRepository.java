@@ -16,6 +16,15 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
 
     List<InventoryItem> findByNameContainingIgnoreCase(String keyword);
 
-    @Query("SELECT COUNT(i) > 0 FROM InventoryItem i WHERE i.name = :name")
-    boolean existsByName(@Param("name") String name);
+    @Query("SELECT COUNT(i) > 0 FROM InventoryItem i WHERE i.name = :name AND i.enterprise.id = :enterpriseId")
+    boolean existsByNameAndEnterpriseId(@Param("name") String name, @Param("enterpriseId") Long enterpriseId);
+
+    @Query("SELECT i FROM InventoryItem i WHERE i.enterprise.id = :enterpriseId")
+    List<InventoryItem> findAllByEnterpriseId(@Param("enterpriseId") Long enterpriseId);
+
+    @Query("SELECT i FROM InventoryItem i WHERE i.warehouse.id = :warehouseId")
+    List<InventoryItem> findAllByWarehouseId(@Param("warehouseId") Long warehouseId);
+
+    @Query("SELECT i FROM InventoryItem i WHERE i.department.id = :departmentId")
+    List<InventoryItem> findAllByDepartmentId(@Param("departmentId") Long departmentId);
 }

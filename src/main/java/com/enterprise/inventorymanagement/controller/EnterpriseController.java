@@ -1,7 +1,7 @@
 package com.enterprise.inventorymanagement.controller;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
-import com.enterprise.inventorymanagement.model.EnterpriseInvite;
+import com.enterprise.inventorymanagement.model.*;
 import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
@@ -9,25 +9,49 @@ import com.enterprise.inventorymanagement.model.dto.UserDTO;
 import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseInviteRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
+import com.enterprise.inventorymanagement.repository.EnterpriseRepository;
+import com.enterprise.inventorymanagement.repository.InviteRepository;
+import com.enterprise.inventorymanagement.repository.RoleRepository;
+import com.enterprise.inventorymanagement.repository.UserRepository;
 import com.enterprise.inventorymanagement.service.EnterpriseService;
 import com.enterprise.inventorymanagement.service.UserDetailsImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/enterprises")
 public class EnterpriseController {
 
+    private static final Logger log = LoggerFactory.getLogger(EnterpriseController.class);
+
+
     private final EnterpriseService enterpriseService;
+    private final EnterpriseRepository enterpriseRepository;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final InviteRepository inviteRepository;
 
     @Autowired
-    public EnterpriseController(EnterpriseService enterpriseService) {
+    public EnterpriseController(
+            EnterpriseService enterpriseService,
+            EnterpriseRepository enterpriseRepository,
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            InviteRepository inviteRepository) {
         this.enterpriseService = enterpriseService;
+        this.enterpriseRepository = enterpriseRepository;
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.inviteRepository = inviteRepository;
     }
 
     /**
@@ -166,16 +190,94 @@ public class EnterpriseController {
             @PathVariable String action,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
+            log.debug("Processing invite {} with action {} for user {}",
+                    inviteId, action, userDetails.getEmail());
+
             if (!action.equalsIgnoreCase("accept") && !action.equalsIgnoreCase("decline")) {
-                return ResponseEntity.badRequest().body("Invalid action. Use 'accept' or 'decline'");
+                log.warn("Invalid action attempted: {}", action);
+                return ResponseEntity.badRequest()
+                        .body("Invalid action. Use 'accept' or 'decline'");
             }
 
             boolean accepted = action.equalsIgnoreCase("accept");
-            enterpriseService.handleInviteResponse(inviteId, userDetails.getEmail(), accepted);
 
-            return ResponseEntity.ok(accepted ? "Invite accepted" : "Invite declined");
+            EnterpriseInvite invite = inviteRepository.findById(inviteId)
+                    .orElseThrow(() -> {
+                        log.error("Invite not found with ID: {}", inviteId);
+                        return new ResourceNotFoundException("Invite not found");
+                    });
+
+            log.debug("Found invite: {}", invite);
+
+            if (!invite.getEmail().equals(userDetails.getEmail())) {
+                log.warn("Unauthorized invite access attempt by user: {}", userDetails.getEmail());
+                return ResponseEntity.status(403)
+                        .body("Not authorized to handle this invite");
+            }
+
+            if (invite.getStatus() != InviteStatus.PENDING) {
+                log.warn("Attempt to process non-pending invite. Status: {}", invite.getStatus());
+                return ResponseEntity.badRequest()
+                        .body("Invite is no longer pending");
+            }
+
+            if (accepted && userDetails.getEnterpriseId() != null) {
+                log.warn("User already in enterprise attempting to accept invite. User: {}", userDetails.getEmail());
+                return ResponseEntity.badRequest()
+                        .body("User is already part of an enterprise");
+            }
+
+            invite.setStatus(accepted ? InviteStatus.ACCEPTED : InviteStatus.DECLINED);
+
+            if (accepted) {
+                log.debug("Processing accepted invite for user: {}", userDetails.getEmail());
+
+                User user = userRepository.findById(userDetails.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+                Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+
+                Role role = roleRepository.findByName(invite.getRole().label)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+                // Set the required fields
+                user.setEnterprise(enterprise);
+                user.setRole(role);
+
+                // Get the full name from the existing user if userDetails doesn't have it
+                String fullName = (userDetails.getFullName() != null && !userDetails.getFullName().trim().isEmpty())
+                        ? userDetails.getFullName()
+                        : user.getFullName();
+
+                if (fullName == null || fullName.trim().isEmpty()) {
+                    throw new IllegalStateException("User's full name is required");
+                }
+
+                user.setFullName(fullName);
+                userRepository.save(user);
+
+                log.info("User {} successfully joined enterprise {} with role {}",
+                        user.getEmail(), enterprise.getName(), role.getName());
+            }
+
+            inviteRepository.save(invite);
+
+            log.info("Invite {} processed successfully. Action: {}", inviteId, action);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", accepted ? "Invite accepted successfully" : "Invite declined successfully",
+                    "status", invite.getStatus(),
+                    "enterpriseId", invite.getEnterpriseId()
+            ));
+
+        } catch (ResourceNotFoundException e) {
+            log.error("Resource not found while processing invite: {}", e.getMessage());
+            return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            log.error("Error processing invite: ", e);
+            return ResponseEntity.status(500)
+                    .body("Error processing invite: " + e.getMessage());
         }
     }
 

@@ -173,35 +173,52 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 .collect(Collectors.toList());
     }
 
-    @Override
     @Transactional
     public void handleInviteResponse(Long inviteId, String userEmail, boolean accepted) {
         EnterpriseInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
+        // Verify the invite is for this user and is in PENDING status
         if (!invite.getEmail().equals(userEmail)) {
             throw new AccessDeniedException("Not authorized to handle this invite");
         }
 
-        if (accepted) {
-            // Find or create user
-            User user = userRepository.findByEmailAndActive(userEmail, true)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-            Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
-
-            user.setEnterprise(enterprise);
-            user.setRole(roleRepository.findByName(invite.getRole().label)
-                    .orElseThrow(() -> new ResourceNotFoundException("Role not found")));
-
-            userRepository.save(user);
-            invite.setStatus(InviteStatus.ACCEPTED);
-        } else {
-            invite.setStatus(InviteStatus.DECLINED);
+        if (invite.getStatus() != InviteStatus.PENDING) {
+            throw new IllegalStateException("Invite is no longer pending");
         }
 
-        inviteRepository.save(invite);
+        try {
+            if (accepted) {
+                User user = userRepository.findByEmailAndActive(userEmail, true)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+                Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+
+                // Check if user is already in an enterprise
+                if (user.getEnterprise() != null) {
+                    throw new IllegalStateException("User is already part of an enterprise");
+                }
+
+                // Find role by name
+                Role role = roleRepository.findByName(invite.getRole().label)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+                // Update user
+                user.setEnterprise(enterprise);
+                user.setRole(role);
+                userRepository.save(user);
+
+                // Update invite
+                invite.setStatus(InviteStatus.ACCEPTED);
+            } else {
+                invite.setStatus(InviteStatus.DECLINED);
+            }
+            inviteRepository.save(invite);
+
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to process invite: " + e.getMessage());
+        }
     }
 
     @Override

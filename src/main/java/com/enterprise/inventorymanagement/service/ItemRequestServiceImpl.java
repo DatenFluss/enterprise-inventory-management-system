@@ -1,17 +1,15 @@
 package com.enterprise.inventorymanagement.service;
 
+import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagement.model.*;
-import com.enterprise.inventorymanagement.model.dto.ItemDTO;
 import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
 import com.enterprise.inventorymanagement.model.dto.RequestItemDTO;
 import com.enterprise.inventorymanagement.model.request.ItemRequest;
 import com.enterprise.inventorymanagement.model.request.RequestItem;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import com.enterprise.inventorymanagement.repository.*;
-import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +18,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class InventoryItemServiceImpl extends ServiceCommon implements InventoryItemService {
+public class ItemRequestServiceImpl extends ServiceCommon implements ItemRequestService {
 
     private final ItemRequestRepository itemRequestRepository;
     private final RequestItemRepository requestItemRepository;
@@ -28,7 +26,7 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
     private final DepartmentRepository departmentRepository;
 
     @Autowired
-    public InventoryItemServiceImpl(
+    public ItemRequestServiceImpl(
             UserRepository userRepository,
             InventoryItemRepository itemRepository,
             RoleRepository roleRepository,
@@ -39,14 +37,14 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
             DepartmentRepository departmentRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationFacade authenticationFacade) {
-        super(userRepository, itemRepository, roleRepository, enterpriseRepository,
-                passwordEncoder, authenticationFacade);
+        super(userRepository, itemRepository, roleRepository, enterpriseRepository, passwordEncoder, authenticationFacade);
         this.itemRequestRepository = itemRequestRepository;
         this.requestItemRepository = requestItemRepository;
         this.warehouseRepository = warehouseRepository;
         this.departmentRepository = departmentRepository;
     }
 
+    @Override
     @Transactional
     public ItemRequestDTO createItemRequest(Long userId, ItemRequestDTO requestDTO) {
         // Validate user
@@ -94,6 +92,7 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         return convertToRequestDTO(request);
     }
 
+    @Override
     @Transactional
     public void handleItemRequest(Long requestId, boolean approved, String responseComments) {
         ItemRequest request = itemRequestRepository.findById(requestId)
@@ -106,6 +105,7 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         User currentUser = getCurrentAuthenticatedUser();
         request.setProcessor(currentUser);
         request.setResponseComments(responseComments);
+        request.setProcessedDate(LocalDateTime.now());
 
         if (approved) {
             // Validate quantities again
@@ -128,7 +128,7 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         itemRequestRepository.save(request);
     }
 
-    @Transactional
+    @Override
     public List<ItemRequestDTO> getRequestsByWarehouseId(Long warehouseId) {
         return itemRequestRepository.findByWarehouseId(warehouseId)
                 .stream()
@@ -136,9 +136,25 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
                 .collect(Collectors.toList());
     }
 
-    @Transactional
+    @Override
+    public List<ItemRequestDTO> getRequestsByWarehouseIdAndStatus(Long warehouseId, RequestStatus status) {
+        return itemRequestRepository.findByWarehouseIdAndStatus(warehouseId, status)
+                .stream()
+                .map(this::convertToRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<ItemRequestDTO> getRequestsByDepartmentId(Long departmentId) {
         return itemRequestRepository.findByDepartmentId(departmentId)
+                .stream()
+                .map(this::convertToRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ItemRequestDTO> getRequestsByDepartmentIdAndStatus(Long departmentId, RequestStatus status) {
+        return itemRequestRepository.findByDepartmentIdAndStatus(departmentId, status)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
@@ -177,4 +193,4 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
                 .comments(requestItem.getComments())
                 .build();
     }
-}
+} 

@@ -35,7 +35,7 @@ public class EnterpriseInvite {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private InviteStatus status;
+    private InviteStatus status = InviteStatus.PENDING;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -43,5 +43,8 @@ public class EnterpriseInvite {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (status == null) {
+            status = InviteStatus.PENDING;
+        }
     }
 }

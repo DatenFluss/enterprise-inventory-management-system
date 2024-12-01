@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,8 +28,8 @@ public class InventoryItem {
     @Min(value = 0, message = "Quantity cannot be negative")
     private Integer quantity;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "enterprise_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "enterprise_id", nullable = false)
     private Enterprise enterprise;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -64,6 +65,15 @@ public class InventoryItem {
 
     public Long getEnterpriseId() {
         return enterprise != null ? enterprise.getId() : null;
+    }
+
+    public void setEnterpriseId(Long enterpriseId) {
+        if (enterpriseId == null) {
+            throw new IllegalArgumentException("Enterprise ID cannot be null");
+        }
+        Enterprise e = new Enterprise();
+        e.setId(enterpriseId);
+        this.enterprise = e;
     }
 
     @PrePersist
