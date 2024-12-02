@@ -53,7 +53,6 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
 
     @Override
     @Transactional
-    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
     public void registerEnterprise(EnterpriseRegistrationRequest request) {
         // Input Validation
         if (request.getEnterpriseName() == null || request.getEnterpriseName().trim().isEmpty()) {
@@ -74,6 +73,9 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         if (request.getOwnerEmail() == null || request.getOwnerEmail().trim().isEmpty()) {
             throw new IllegalArgumentException("Owner email is required.");
         }
+        if (request.getOwnerFullName() == null || request.getOwnerFullName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Owner full name is required.");
+        }
 
         Enterprise enterprise = new Enterprise();
         enterprise.setName(request.getEnterpriseName());
@@ -87,9 +89,19 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         owner.setUsername(request.getOwnerUsername());
         owner.setPassword(passwordEncoder.encode(request.getOwnerPassword()));
         owner.setEmail(request.getOwnerEmail());
+        owner.setFullName(request.getOwnerFullName());
         owner.setActive(true);
         owner.setEnterprise(savedEnterprise);
-        owner.setRole(roleRepository.findByName(RoleName.OWNER.label).orElseThrow());
+        try {
+            Role ownerRole = roleRepository.findByName(RoleName.OWNER.name())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Required role 'OWNER' not found in the database. Please ensure all roles are properly initialized."));
+            owner.setRole(ownerRole);
+        } catch (Exception e) {
+            // Rollback the enterprise creation if role assignment fails
+            enterpriseRepository.delete(savedEnterprise);
+            throw new IllegalStateException("Failed to assign owner role: " + e.getMessage(), e);
+        }
 
         userRepository.save(owner);
     }
@@ -201,7 +213,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 }
 
                 // Find role by name
-                Role role = roleRepository.findByName(invite.getRole().label)
+                Role role = roleRepository.findByName(invite.getRole().name())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
                 // Update user

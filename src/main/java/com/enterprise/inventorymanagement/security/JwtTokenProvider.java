@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import com.enterprise.inventorymanagement.service.UserDetailsImpl;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +29,7 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Authentication authentication) {
-        CustomUserDetails userPrincipal = (CustomUserDetails) authentication.getPrincipal();
+        UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);

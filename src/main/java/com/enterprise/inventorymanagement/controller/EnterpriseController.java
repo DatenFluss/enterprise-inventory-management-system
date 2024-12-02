@@ -58,7 +58,6 @@ public class EnterpriseController {
      * Register a new enterprise.
      */
     @PostMapping("/register")
-    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
     public ResponseEntity<?> registerEnterprise(@Valid @RequestBody EnterpriseRegistrationRequest request) {
         enterpriseService.registerEnterprise(request);
         return ResponseEntity.ok("Enterprise registration successful");
@@ -238,7 +237,7 @@ public class EnterpriseController {
                 Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
                         .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
 
-                Role role = roleRepository.findByName(invite.getRole().label)
+                Role role = roleRepository.findByName(invite.getRole().name())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
                 // Set the required fields

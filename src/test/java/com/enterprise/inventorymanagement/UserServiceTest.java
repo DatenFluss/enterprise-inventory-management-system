@@ -74,12 +74,12 @@ class UserServiceTest {
 
         // Create roles
         Role managerRole = new Role();
-        managerRole.setName(RoleName.MANAGER.label);
+        managerRole.setName(RoleName.MANAGER.name());
         managerRole.setPermissions(Set.of(deactivateNonPrivilegedUserPermission));
         roleRepository.save(managerRole);
 
         Role employeeRole = new Role();
-        employeeRole.setName(RoleName.EMPLOYEE.label);
+        employeeRole.setName(RoleName.EMPLOYEE.name());
         employeeRole.setPermissions(Set.of(requestItemPermission, viewAvailableItemsPermission));
         roleRepository.save(employeeRole);
 

@@ -70,7 +70,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         user.setActive(true);
 
         // Assign default unaffiliated role
-        Role role = roleRepository.findByName(RoleName.UNAFFILIATED.label)
+        Role role = roleRepository.findByName(RoleName.UNAFFILIATED.name())
                 .orElseThrow(() -> new IllegalArgumentException("Default role not found."));
         user.setRole(role);
 
@@ -127,7 +127,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
-        Role role = roleRepository.findByName(roleName.label)
+        Role role = roleRepository.findByName(roleName.name())
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
 
         user.setRole(role);
@@ -273,7 +273,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                     .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
 
             user.setEnterprise(enterprise);
-            user.setRole(roleRepository.findByName(invite.getRole().label)
+            user.setRole(roleRepository.findByName(invite.getRole().name())
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found")));
 
             userRepository.save(user);

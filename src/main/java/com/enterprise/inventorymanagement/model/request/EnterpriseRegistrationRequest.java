@@ -30,4 +30,7 @@ public class EnterpriseRegistrationRequest {
     @Email
     private String ownerEmail;
 
+    @NotBlank(message = "Owner's full name is required")
+    private String ownerFullName;
+
 }
