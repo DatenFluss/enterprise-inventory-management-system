@@ -69,9 +69,15 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         user.setEmail(request.getEmail());
         user.setActive(true);
 
-        // Assign default unaffiliated role
-        Role role = roleRepository.findByName(RoleName.UNAFFILIATED.name())
-                .orElseThrow(() -> new IllegalArgumentException("Default role not found."));
+        // Set default role
+        logger.debug("Setting default role for new user");
+        String roleName = RoleName.ROLE_UNAFFILIATED.name();
+        logger.debug("Looking for role with name: {}", roleName);
+        Role role = roleRepository.findByName(RoleName.ROLE_UNAFFILIATED)
+                .orElseThrow(() -> {
+                    logger.error("Default role not found: {}", roleName);
+                    return new IllegalArgumentException("Default role not found: " + roleName);
+                });
         user.setRole(role);
 
         userRepository.save(user);
@@ -98,7 +104,8 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
 
         // Handle role update if provided
         if (userDTO.getRoleName() != null) {
-            Role role = roleRepository.findByName(userDTO.getRoleName())
+            RoleName roleName = RoleName.valueOf(userDTO.getRoleName());
+            Role role = roleRepository.findByName(roleName)
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + userDTO.getRoleName()));
             user.setRole(role);
         }
@@ -127,7 +134,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
-        Role role = roleRepository.findByName(roleName.name())
+        Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
 
         user.setRole(role);
@@ -210,8 +217,10 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
     public boolean isPrivilegedUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        String roleName = user.getRole().getName();
-        return roleName.equals("MANAGER") || roleName.equals("OWNER") || roleName.equals("ADMIN");
+        RoleName roleName = user.getRole().getName();
+        return roleName == RoleName.ROLE_MANAGER || 
+               roleName == RoleName.ROLE_ENTERPRISE_OWNER || 
+               roleName == RoleName.ROLE_ADMIN;
     }
 
     @Override
@@ -273,7 +282,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                     .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
 
             user.setEnterprise(enterprise);
-            user.setRole(roleRepository.findByName(invite.getRole().name())
+            user.setRole(roleRepository.findByName(invite.getRole())
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found")));
 
             userRepository.save(user);
@@ -330,13 +339,25 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (enterpriseId == null) {
+            if (user.getEnterprise() != null) {
+                Enterprise oldEnterprise = user.getEnterprise();
+                oldEnterprise.getEmployees().remove(user);
+                enterpriseRepository.save(oldEnterprise);
+            }
             user.setEnterprise(null);
         } else {
-            Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+            Enterprise enterprise = enterpriseRepository.findByIdWithEmployees(enterpriseId)
                     .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
+            
+            // Update both sides of the relationship
             user.setEnterprise(enterprise);
+            enterprise.getEmployees().add(user);
+            
+            // Save enterprise
+            enterpriseRepository.save(enterprise);
         }
 
+        // Save user
         userRepository.save(user);
     }
 
@@ -365,7 +386,16 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                 .active(user.getActive())
                 .enterpriseId(user.getEnterprise() != null ? user.getEnterprise().getId() : null)
                 .managerId(user.getManager() != null ? user.getManager().getId() : null)
-                .roleName(user.getRole().getName())
+                .roleName(user.getRole().getName().name())
                 .build();
+    }
+
+    private boolean isManagerOrHigher(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        RoleName roleName = user.getRole().getName();
+        return roleName == RoleName.ROLE_MANAGER || 
+               roleName == RoleName.ROLE_ENTERPRISE_OWNER || 
+               roleName == RoleName.ROLE_ADMIN;
     }
 }

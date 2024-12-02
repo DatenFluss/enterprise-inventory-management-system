@@ -1,7 +1,12 @@
 package com.enterprise.inventorymanagement.controller;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
-import com.enterprise.inventorymanagement.model.*;
+import com.enterprise.inventorymanagement.model.Enterprise;
+import com.enterprise.inventorymanagement.model.EnterpriseInvite;
+import com.enterprise.inventorymanagement.model.InviteStatus;
+import com.enterprise.inventorymanagement.model.Role;
+import com.enterprise.inventorymanagement.model.RoleName;
+import com.enterprise.inventorymanagement.model.User;
 import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
@@ -13,32 +18,33 @@ import com.enterprise.inventorymanagement.repository.EnterpriseRepository;
 import com.enterprise.inventorymanagement.repository.InviteRepository;
 import com.enterprise.inventorymanagement.repository.RoleRepository;
 import com.enterprise.inventorymanagement.repository.UserRepository;
+import com.enterprise.inventorymanagement.security.JwtTokenProvider;
 import com.enterprise.inventorymanagement.service.EnterpriseService;
 import com.enterprise.inventorymanagement.service.UserDetailsImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
 import jakarta.validation.Valid;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/enterprises")
 public class EnterpriseController {
-
     private static final Logger log = LoggerFactory.getLogger(EnterpriseController.class);
-
 
     private final EnterpriseService enterpriseService;
     private final EnterpriseRepository enterpriseRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final InviteRepository inviteRepository;
+    private final JwtTokenProvider tokenProvider;
 
     @Autowired
     public EnterpriseController(
@@ -46,12 +52,14 @@ public class EnterpriseController {
             EnterpriseRepository enterpriseRepository,
             UserRepository userRepository,
             RoleRepository roleRepository,
-            InviteRepository inviteRepository) {
+            InviteRepository inviteRepository,
+            JwtTokenProvider tokenProvider) {
         this.enterpriseService = enterpriseService;
         this.enterpriseRepository = enterpriseRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.inviteRepository = inviteRepository;
+        this.tokenProvider = tokenProvider;
     }
 
     /**
@@ -159,11 +167,8 @@ public class EnterpriseController {
     /**
      * Create an invite for a user to join an enterprise
      */
-    /**
-     * Create an invite for a user to join an enterprise
-     */
     @PostMapping("/invites")
-    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISES')")
+    @PreAuthorize("hasAuthority('MANAGE_ENTERPRISE')")
     public ResponseEntity<?> createInvite(
             @Valid @RequestBody EnterpriseInviteRequest request,
             @AuthenticationPrincipal UserDetailsImpl inviter) {
@@ -237,46 +242,35 @@ public class EnterpriseController {
                 Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
                         .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
 
-                Role role = roleRepository.findByName(invite.getRole().name())
+                Role role = roleRepository.findByName(invite.getRole())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
                 // Set the required fields
                 user.setEnterprise(enterprise);
                 user.setRole(role);
-
-                // Get the full name from the existing user if userDetails doesn't have it
-                String fullName = (userDetails.getFullName() != null && !userDetails.getFullName().trim().isEmpty())
-                        ? userDetails.getFullName()
-                        : user.getFullName();
-
-                if (fullName == null || fullName.trim().isEmpty()) {
-                    throw new IllegalStateException("User's full name is required");
-                }
-
-                user.setFullName(fullName);
                 userRepository.save(user);
+                inviteRepository.save(invite);
 
-                log.info("User {} successfully joined enterprise {} with role {}",
-                        user.getEmail(), enterprise.getName(), role.getName());
+                // Generate new JWT token with updated roles
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                    UserDetailsImpl.build(user),
+                    null,
+                    UserDetailsImpl.build(user).getAuthorities()
+                );
+                String newToken = tokenProvider.generateToken(authentication);
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Invite accepted successfully");
+                response.put("token", newToken);
+                response.put("role", role.getName());
+                return ResponseEntity.ok(response);
+            } else {
+                inviteRepository.save(invite);
+                return ResponseEntity.ok("Invite declined successfully");
             }
-
-            inviteRepository.save(invite);
-
-            log.info("Invite {} processed successfully. Action: {}", inviteId, action);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", accepted ? "Invite accepted successfully" : "Invite declined successfully",
-                    "status", invite.getStatus(),
-                    "enterpriseId", invite.getEnterpriseId()
-            ));
-
-        } catch (ResourceNotFoundException e) {
-            log.error("Resource not found while processing invite: {}", e.getMessage());
-            return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
             log.error("Error processing invite: ", e);
-            return ResponseEntity.status(500)
-                    .body("Error processing invite: " + e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -286,28 +280,41 @@ public class EnterpriseController {
     @GetMapping("/current")
     public ResponseEntity<?> getCurrentEnterprise(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            if (userDetails.getEnterpriseId() == null) {
-                return ResponseEntity.notFound().build();
-            }
-            EnterpriseDTO enterprise = enterpriseService.getEnterpriseById(userDetails.getEnterpriseId());
-            return ResponseEntity.ok(enterprise);
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
-        }
-    }
-
-    /**
-     * Get all employees in an enterprise
-     */
-    @GetMapping("/employees")
-    @PreAuthorize("hasAnyAuthority('VIEW_USERS', 'MANAGE_USERS')")
-    public ResponseEntity<?> getEnterpriseEmployees(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        try {
             Long enterpriseId = userDetails.getEnterpriseId();
             if (enterpriseId == null) {
                 return ResponseEntity.notFound().build();
             }
-            List<UserDTO> employees = enterpriseService.getEnterpriseEmployees(enterpriseId);
+
+            // Use the service method that already handles lazy loading properly
+            EnterpriseDTO enterprise = enterpriseService.getEnterpriseById(enterpriseId);
+            
+            log.debug("Retrieved enterprise for user {}: {}", 
+                userDetails.getUsername(), 
+                enterprise != null ? enterprise.getName() : "null");
+            
+            return ResponseEntity.ok(enterprise);
+        } catch (ResourceNotFoundException e) {
+            log.error("Error retrieving enterprise for user {}: {}", 
+                userDetails.getUsername(), e.getMessage());
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error retrieving enterprise for user {}: {}", 
+                userDetails.getUsername(), e.getMessage(), e);
+            return ResponseEntity.status(500).body("An unexpected error occurred");
+        }
+    }
+
+    /**
+     * Get employees of the current enterprise
+     */
+    @GetMapping("/employees")
+    @PreAuthorize("hasAuthority('VIEW_ENTERPRISE')")
+    public ResponseEntity<?> getEnterpriseEmployees(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            if (userDetails.getEnterpriseId() == null) {
+                return ResponseEntity.badRequest().body("User is not associated with any enterprise");
+            }
+            List<UserDTO> employees = enterpriseService.getEnterpriseEmployees(userDetails.getEnterpriseId());
             return ResponseEntity.ok(employees);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -345,6 +352,31 @@ public class EnterpriseController {
             DepartmentDTO department = enterpriseService.createDepartment(enterpriseId, request);
             return ResponseEntity.ok(department);
         } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/departments/{departmentId}/manager")
+    @PreAuthorize("hasAuthority('MANAGE_DEPARTMENTS')")
+    public ResponseEntity<?> assignDepartmentManager(
+            @PathVariable Long departmentId,
+            @RequestBody Map<String, Long> request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            Long userId = request.get("userId");
+            if (userId == null) {
+                return ResponseEntity.badRequest().body("User ID is required");
+            }
+
+            if (userDetails.getEnterpriseId() == null) {
+                return ResponseEntity.badRequest().body("User is not associated with any enterprise");
+            }
+
+            DepartmentDTO department = enterpriseService.assignDepartmentManager(departmentId, userId, userDetails.getEnterpriseId());
+            return ResponseEntity.ok(department);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

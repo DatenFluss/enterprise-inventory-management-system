@@ -13,7 +13,7 @@ public interface EnterpriseRepository extends JpaRepository<Enterprise, Long> {
 
     @NotNull Optional<Enterprise> findById(@NotNull Long id);
 
-    @Query("SELECT e FROM Enterprise e LEFT JOIN FETCH e.employees WHERE e.id = :id")
+    @Query("SELECT DISTINCT e FROM Enterprise e LEFT JOIN FETCH e.employees WHERE e.id = :id")
     Optional<Enterprise> findByIdWithEmployees(@Param("id") Long id);
 
     @Query("SELECT DISTINCT e FROM Enterprise e LEFT JOIN FETCH e.employees")

@@ -1,45 +1,43 @@
 package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
-import com.enterprise.inventorymanagement.model.*;
-import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
-import com.enterprise.inventorymanagement.model.dto.RequestItemDTO;
 import com.enterprise.inventorymanagement.model.request.ItemRequest;
 import com.enterprise.inventorymanagement.model.request.RequestItem;
+import com.enterprise.inventorymanagement.model.User;
+import com.enterprise.inventorymanagement.model.InventoryItem;
+import com.enterprise.inventorymanagement.model.Department;
+import com.enterprise.inventorymanagement.model.Warehouse;
+import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
+import com.enterprise.inventorymanagement.model.dto.RequestItemDTO;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import com.enterprise.inventorymanagement.repository.*;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class ItemRequestServiceImpl extends ServiceCommon implements ItemRequestService {
+public class ItemRequestServiceImpl implements ItemRequestService {
 
     private final ItemRequestRepository itemRequestRepository;
-    private final RequestItemRepository requestItemRepository;
+    private final UserRepository userRepository;
+    private final InventoryItemRepository inventoryItemRepository;
     private final WarehouseRepository warehouseRepository;
     private final DepartmentRepository departmentRepository;
 
     @Autowired
     public ItemRequestServiceImpl(
-            UserRepository userRepository,
-            InventoryItemRepository itemRepository,
-            RoleRepository roleRepository,
-            EnterpriseRepository enterpriseRepository,
             ItemRequestRepository itemRequestRepository,
-            RequestItemRepository requestItemRepository,
+            UserRepository userRepository,
+            InventoryItemRepository inventoryItemRepository,
             WarehouseRepository warehouseRepository,
-            DepartmentRepository departmentRepository,
-            PasswordEncoder passwordEncoder,
-            AuthenticationFacade authenticationFacade) {
-        super(userRepository, itemRepository, roleRepository, enterpriseRepository, passwordEncoder, authenticationFacade);
+            DepartmentRepository departmentRepository) {
         this.itemRequestRepository = itemRequestRepository;
-        this.requestItemRepository = requestItemRepository;
+        this.userRepository = userRepository;
+        this.inventoryItemRepository = inventoryItemRepository;
         this.warehouseRepository = warehouseRepository;
         this.departmentRepository = departmentRepository;
     }
@@ -47,47 +45,39 @@ public class ItemRequestServiceImpl extends ServiceCommon implements ItemRequest
     @Override
     @Transactional
     public ItemRequestDTO createItemRequest(Long userId, ItemRequestDTO requestDTO) {
-        // Validate user
         User requester = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Validate warehouse
-        Warehouse warehouse = warehouseRepository.findById(requestDTO.getWarehouseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found"));
-
-        // Validate department
-        Department department = departmentRepository.findById(requestDTO.getDepartmentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
-
-        // Create the request
         ItemRequest request = new ItemRequest();
         request.setRequester(requester);
-        request.setSourceWarehouse(warehouse);
-        request.setTargetDepartment(department);
+        request.setSourceWarehouse(warehouseRepository.findById(requestDTO.getWarehouseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found")));
+        request.setTargetDepartment(departmentRepository.findById(requestDTO.getDepartmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found")));
         request.setComments(requestDTO.getComments());
         request.setStatus(RequestStatus.PENDING);
+        request.setRequestDate(LocalDateTime.now());
 
-        // Add request items
-        for (RequestItemDTO itemDTO : requestDTO.getRequestItems()) {
-            InventoryItem item = itemRepository.findById(itemDTO.getItemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemDTO.getItemId()));
+        if (requestDTO.getRequestItems() != null) {
+            for (RequestItemDTO itemDTO : requestDTO.getRequestItems()) {
+                InventoryItem item = inventoryItemRepository.findById(itemDTO.getItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemDTO.getItemId()));
 
-            // Validate quantity
-            if (itemDTO.getQuantity() > item.getQuantity()) {
-                throw new IllegalArgumentException(
-                    String.format("Requested quantity (%d) exceeds available quantity (%d) for item: %s",
-                        itemDTO.getQuantity(), item.getQuantity(), item.getName())
-                );
+                if (itemDTO.getQuantity() > item.getQuantity()) {
+                    throw new IllegalArgumentException(
+                        String.format("Requested quantity (%d) exceeds available quantity (%d) for item: %s",
+                            itemDTO.getQuantity(), item.getQuantity(), item.getName())
+                    );
+                }
+
+                RequestItem requestItem = new RequestItem();
+                requestItem.setInventoryItem(item);
+                requestItem.setQuantity(itemDTO.getQuantity());
+                requestItem.setComments(itemDTO.getComments());
+                request.addRequestItem(requestItem);
             }
-
-            RequestItem requestItem = new RequestItem();
-            requestItem.setInventoryItem(item);
-            requestItem.setQuantity(itemDTO.getQuantity());
-            requestItem.setComments(itemDTO.getComments());
-            request.addRequestItem(requestItem);
         }
 
-        // Save the request
         request = itemRequestRepository.save(request);
         return convertToRequestDTO(request);
     }
@@ -99,88 +89,102 @@ public class ItemRequestServiceImpl extends ServiceCommon implements ItemRequest
                 .orElseThrow(() -> new ResourceNotFoundException("Request not found"));
 
         if (request.getStatus() != RequestStatus.PENDING) {
-            throw new IllegalStateException("Request is no longer pending");
+            throw new IllegalStateException("Request has already been processed");
         }
 
-        User currentUser = getCurrentAuthenticatedUser();
-        request.setProcessor(currentUser);
+        request.setStatus(approved ? RequestStatus.APPROVED : RequestStatus.REJECTED);
         request.setResponseComments(responseComments);
         request.setProcessedDate(LocalDateTime.now());
 
         if (approved) {
-            // Validate quantities again
             for (RequestItem requestItem : request.getRequestItems()) {
                 InventoryItem item = requestItem.getInventoryItem();
-                if (requestItem.getQuantity() > item.getQuantity()) {
+                if (item.getQuantity() < requestItem.getQuantity()) {
                     throw new IllegalStateException(
                         String.format("Insufficient quantity available for item: %s", item.getName())
                     );
                 }
-                // Update inventory quantities
                 item.setQuantity(item.getQuantity() - requestItem.getQuantity());
-                itemRepository.save(item);
+                inventoryItemRepository.save(item);
             }
-            request.setStatus(RequestStatus.APPROVED);
-        } else {
-            request.setStatus(RequestStatus.REJECTED);
         }
 
         itemRequestRepository.save(request);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByWarehouseId(Long warehouseId) {
-        return itemRequestRepository.findByWarehouseId(warehouseId)
+        return itemRequestRepository.findBySourceWarehouseId(warehouseId)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByWarehouseIdAndStatus(Long warehouseId, RequestStatus status) {
-        return itemRequestRepository.findByWarehouseIdAndStatus(warehouseId, status)
+        return itemRequestRepository.findBySourceWarehouseIdAndStatus(warehouseId, status)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByDepartmentId(Long departmentId) {
-        return itemRequestRepository.findByDepartmentId(departmentId)
+        return itemRequestRepository.findByTargetDepartmentId(departmentId)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByDepartmentIdAndStatus(Long departmentId, RequestStatus status) {
-        return itemRequestRepository.findByDepartmentIdAndStatus(departmentId, status)
+        return itemRequestRepository.findByTargetDepartmentIdAndStatus(departmentId, status)
+                .stream()
+                .map(this::convertToRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemRequestDTO> getRequestsByUserId(Long userId) {
+        return itemRequestRepository.findByRequesterId(userId)
+                .stream()
+                .map(this::convertToRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemRequestDTO> getRequestsByUserIdAndStatus(Long userId, RequestStatus status) {
+        return itemRequestRepository.findByRequesterIdAndStatus(userId, status)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
     }
 
     private ItemRequestDTO convertToRequestDTO(ItemRequest request) {
-        List<RequestItemDTO> itemDTOs = request.getRequestItems().stream()
-                .map(this::convertToRequestItemDTO)
-                .collect(Collectors.toList());
-
         return ItemRequestDTO.builder()
                 .id(request.getId())
+                .requesterId(request.getRequester().getId())
+                .requesterName(request.getRequester().getUsername())
                 .warehouseId(request.getSourceWarehouse().getId())
                 .warehouseName(request.getSourceWarehouse().getName())
                 .departmentId(request.getTargetDepartment().getId())
                 .departmentName(request.getTargetDepartment().getName())
-                .requestItems(itemDTOs)
-                .status(request.getStatus().toString())
-                .comments(request.getComments())
-                .responseComments(request.getResponseComments())
-                .requesterId(request.getRequester().getId())
-                .requesterName(request.getRequester().getUsername())
-                .processorId(request.getProcessor() != null ? request.getProcessor().getId() : null)
-                .processorName(request.getProcessor() != null ? request.getProcessor().getUsername() : null)
+                .status(request.getStatus())
                 .requestDate(request.getRequestDate())
                 .processedDate(request.getProcessedDate())
+                .comments(request.getComments())
+                .responseComments(request.getResponseComments())
+                .processorId(request.getProcessor() != null ? request.getProcessor().getId() : null)
+                .processorName(request.getProcessor() != null ? request.getProcessor().getUsername() : null)
+                .requestItems(request.getRequestItems().stream()
+                        .map(this::convertToRequestItemDTO)
+                        .collect(Collectors.toList()))
                 .build();
     }
 

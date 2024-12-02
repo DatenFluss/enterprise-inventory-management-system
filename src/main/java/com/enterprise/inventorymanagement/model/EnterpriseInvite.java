@@ -1,20 +1,12 @@
 package com.enterprise.inventorymanagement.model;
 
-
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "enterprise_invites")
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class EnterpriseInvite {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,21 +22,13 @@ public class EnterpriseInvite {
     private Long inviterId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
+    @Column(nullable = false)
     private RoleName role;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(nullable = false)
     private InviteStatus status = InviteStatus.PENDING;
 
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = InviteStatus.PENDING;
-        }
-    }
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

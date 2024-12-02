@@ -22,4 +22,7 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     
     @Query("SELECT w FROM Warehouse w WHERE w.manager.id = :managerId")
     List<Warehouse> findByManagerId(@Param("managerId") Long managerId);
+
+    @Query("SELECT w FROM Warehouse w WHERE w.operator.id = :operatorId")
+    Optional<Warehouse> findByOperatorId(@Param("operatorId") Long operatorId);
 }

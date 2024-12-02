@@ -14,7 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     @Query("SELECT u FROM User u WHERE u.manager.id = :managerId")
     List<User> findByManagerId(@Param("managerId") Long managerId);
-    @Query("SELECT u FROM User u WHERE u.enterprise.id = :enterpriseId")
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.enterprise WHERE u.enterprise.id = :enterpriseId")
     List<User> findByEnterpriseId(@Param("enterpriseId") Long enterpriseId);
     Optional<User> findByEmailAndActive(String email, boolean active);
 }

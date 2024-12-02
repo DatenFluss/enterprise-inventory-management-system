@@ -81,5 +81,6 @@ public interface EnterpriseService {
     List<UserDTO> getEnterpriseEmployees(Long enterpriseId);
     List<DepartmentDTO> getEnterpriseDepartments(Long enterpriseId);
     DepartmentDTO createDepartment(Long enterpriseId, DepartmentRequest request);
+    DepartmentDTO assignDepartmentManager(Long departmentId, Long userId, Long enterpriseId);
 }
 

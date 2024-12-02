@@ -19,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/requests")
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true", maxAge = 3600)
 public class ItemRequestController {
 
     private final ItemRequestService itemRequestService;
@@ -113,6 +113,33 @@ public class ItemRequestController {
             Map<String, Object> response = new HashMap<>();
             response.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "An unexpected error occurred");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Get requests for the current user (Employee)
+     */
+    @GetMapping
+    @PreAuthorize("hasAuthority('VIEW_REQUESTS')")
+    public ResponseEntity<Map<String, Object>> getUserRequests(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam(required = false) RequestStatus status) {
+        try {
+            List<ItemRequestDTO> requests;
+            if (status != null) {
+                requests = itemRequestService.getRequestsByUserIdAndStatus(userDetails.getId(), status);
+            } else {
+                requests = itemRequestService.getRequestsByUserId(userDetails.getId());
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("count", requests.size());
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
             response.put("error", "An unexpected error occurred");

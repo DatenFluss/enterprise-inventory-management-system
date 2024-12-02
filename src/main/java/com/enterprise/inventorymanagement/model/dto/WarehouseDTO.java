@@ -14,5 +14,7 @@ public class WarehouseDTO {
     private Long enterpriseId;
     private String enterpriseName;
     private String managerName;
+    private Long operatorId;
+    private String operatorName;
     private Integer itemCount;
 }

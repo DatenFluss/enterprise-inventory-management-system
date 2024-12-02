@@ -9,6 +9,8 @@ import com.enterprise.inventorymanagement.model.dto.UserDTO;
 import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
 import com.enterprise.inventorymanagement.repository.*;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseService {
+
+    private static final Logger log = LoggerFactory.getLogger(EnterpriseServiceImpl.class);
 
     private final InviteRepository inviteRepository;
     private final DepartmentRepository departmentRepository;
@@ -93,26 +97,86 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         owner.setActive(true);
         owner.setEnterprise(savedEnterprise);
         try {
-            Role ownerRole = roleRepository.findByName(RoleName.OWNER.name())
+            Role ownerRole = roleRepository.findByName(RoleName.ROLE_ENTERPRISE_OWNER)
                     .orElseThrow(() -> new IllegalStateException(
-                            "Required role 'OWNER' not found in the database. Please ensure all roles are properly initialized."));
+                            "Required role 'ROLE_ENTERPRISE_OWNER' not found in the database. Please ensure all roles are properly initialized."));
             owner.setRole(ownerRole);
+            userRepository.save(owner);
         } catch (Exception e) {
             // Rollback the enterprise creation if role assignment fails
             enterpriseRepository.delete(savedEnterprise);
             throw new IllegalStateException("Failed to assign owner role: " + e.getMessage(), e);
         }
-
-        userRepository.save(owner);
     }
 
     @Override
     @Transactional
     public EnterpriseDTO getEnterpriseById(Long enterpriseId) throws ResourceNotFoundException {
+        log.debug("Getting enterprise by ID: {}", enterpriseId);
+        
+        // Get the enterprise with its employees
         Enterprise enterprise = enterpriseRepository.findByIdWithEmployees(enterpriseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found with ID: " + enterpriseId));
+        
+        // Get the actual employee count from the database
+        List<User> employees = userRepository.findByEnterpriseId(enterpriseId);
+        int employeeCount = employees.size();
+        
+        log.debug("Found enterprise: {}, Employee count from query: {}", 
+            enterprise.getName(), employeeCount);
 
-        return convertToDTO(enterprise);
+        // Get departments for this enterprise
+        List<DepartmentDTO> departments = departmentRepository.findByEnterpriseId(enterpriseId)
+                .stream()
+                .map(this::convertToDepartmentDTO)
+                .collect(Collectors.toList());
+
+        // Get the current user's department if they are authenticated
+        DepartmentDTO userDepartment = null;
+        User currentUser = null;
+        try {
+            currentUser = getCurrentAuthenticatedUser();
+        } catch (Exception e) {
+            log.debug("No authenticated user found: {}", e.getMessage());
+        }
+
+        if (currentUser != null) {
+            // First check if user is a manager of any department
+            final User authenticatedUser = currentUser;  // Create final copy for lambda
+            final Long userId = authenticatedUser.getId();
+            userDepartment = departments.stream()
+                    .filter(dept -> userId.equals(dept.getManagerId()))
+                    .findFirst()
+                    .orElse(null);
+
+            // If not a manager, check if user is an employee of any department
+            if (userDepartment == null) {
+                userDepartment = departments.stream()
+                        .filter(dept -> dept.getEmployeeIds() != null && dept.getEmployeeIds().contains(userId))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            log.debug("Found user department: {}", userDepartment != null ? userDepartment.getName() : "None");
+        }
+
+        // Create DTO with the actual employee count
+        EnterpriseDTO dto = new EnterpriseDTO();
+        dto.setId(enterprise.getId());
+        dto.setName(enterprise.getName());
+        dto.setAddress(enterprise.getAddress());
+        dto.setContactEmail(enterprise.getContactEmail());
+        dto.setTotalEmployees(employeeCount);
+        dto.setDepartments(departments);
+        dto.setUserDepartment(userDepartment);
+        
+        Set<Long> employeeIds = employees.stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+        dto.setEmployeeIds(employeeIds);
+
+        log.debug("Returning DTO with total employees: {}", dto.getTotalEmployees());
+        return dto;
     }
 
     @Override
@@ -152,19 +216,27 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
     @Override
     @Transactional
     public void addEmployeeToEnterprise(Long enterpriseId, Long employeeId) throws ResourceNotFoundException {
-        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
+        Enterprise enterprise = enterpriseRepository.findByIdWithEmployees(enterpriseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found with ID: " + enterpriseId));
 
         User employee = userRepository.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + employeeId));
 
+        // Update both sides of the relationship
         employee.setEnterprise(enterprise);
+        enterprise.getEmployees().add(employee);
+
+        // Save both entities
         userRepository.save(employee);
+        enterpriseRepository.save(enterprise);
     }
 
     @Override
     @Transactional
     public void removeEmployeeFromEnterprise(Long enterpriseId, Long employeeId) throws ResourceNotFoundException {
+        Enterprise enterprise = enterpriseRepository.findByIdWithEmployees(enterpriseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found with ID: " + enterpriseId));
+
         User employee = userRepository.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + employeeId));
 
@@ -173,7 +245,9 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
         }
 
         employee.setEnterprise(null);
+        enterprise.getEmployees().remove(employee);
         userRepository.save(employee);
+        enterpriseRepository.save(enterprise);
     }
 
     @Override
@@ -213,7 +287,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 }
 
                 // Find role by name
-                Role role = roleRepository.findByName(invite.getRole().name())
+                Role role = roleRepository.findByName(invite.getRole())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
                 // Update user
@@ -271,14 +345,31 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserDTO> getEnterpriseEmployees(Long enterpriseId) {
-        Enterprise enterprise = enterpriseRepository.findById(enterpriseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));
-
-        return userRepository.findByEnterpriseId(enterpriseId)
-                .stream()
-                .map(this::convertToUserDTO)
+        log.debug("Fetching employees for enterprise ID: {}", enterpriseId);
+        
+        List<User> employees = userRepository.findByEnterpriseId(enterpriseId);
+        log.debug("Found {} employees", employees.size());
+        
+        List<UserDTO> dtos = employees.stream()
+                .map(user -> {
+                    log.debug("Mapping user: {} with role: {}", user.getUsername(), user.getRole().getName());
+                    return UserDTO.builder()
+                            .id(user.getId())
+                            .username(user.getUsername())
+                            .email(user.getEmail())
+                            .fullName(user.getFullName())
+                            .roleName(user.getRole().getName().name())
+                            .active(user.getActive())
+                            .enterpriseId(user.getEnterprise().getId())
+                            .managerId(user.getManager() != null ? user.getManager().getId() : null)
+                            .build();
+                })
                 .collect(Collectors.toList());
+        
+        log.debug("Returning {} employee DTOs", dtos.size());
+        return dtos;
     }
 
     public DepartmentDTO createDepartment(Long enterpriseId, DepartmentRequest request) {
@@ -336,7 +427,7 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
                 .active(user.getActive())
                 .enterpriseId(user.getEnterprise() != null ? user.getEnterprise().getId() : null)
                 .managerId(user.getManager() != null ? user.getManager().getId() : null)
-                .roleName(user.getRole().getName())
+                .roleName(user.getRole().getName().name())
                 .build();
     }
 
@@ -353,6 +444,9 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
             employeeIds = enterprise.getEmployees().stream()
                     .map(User::getId)
                     .collect(Collectors.toSet());
+            dto.setTotalEmployees(enterprise.getEmployees().size());
+        } else {
+            dto.setTotalEmployees(0);
         }
         dto.setEmployeeIds(employeeIds);
 
@@ -360,12 +454,63 @@ public class EnterpriseServiceImpl extends ServiceCommon implements EnterpriseSe
     }
 
     private DepartmentDTO convertToDepartmentDTO(Department department) {
+        Set<Long> employeeIds = department.getEmployees().stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
         return DepartmentDTO.builder()
                 .id(department.getId())
                 .name(department.getName())
+                .description(department.getDescription())
                 .managerName(department.getManager() != null ? department.getManager().getFullName() : null)
+                .managerId(department.getManager() != null ? department.getManager().getId() : null)
                 .employeeCount(department.getEmployees().size())
                 .itemCount(department.getItems().size())
+                .employeeIds(employeeIds)
+                .build();
+    }
+
+    @Override
+    public DepartmentDTO assignDepartmentManager(Long departmentId, Long userId, Long enterpriseId) {
+        Department department = departmentRepository.findByIdAndEnterpriseId(departmentId, enterpriseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
+
+        User manager = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Check if user is an enterprise owner
+        if (manager.getRole().getName() == RoleName.ROLE_ENTERPRISE_OWNER) {
+            throw new IllegalArgumentException("Enterprise owners cannot be assigned as department managers");
+        }
+
+        // Check if user is already a manager of another department
+        if (!departmentRepository.findByManagerId(userId).isEmpty()) {
+            throw new IllegalArgumentException("User is already assigned as a manager to another department");
+        }
+
+        // Get the manager role
+        Role managerRole = roleRepository.findByName(RoleName.ROLE_MANAGER)
+                .orElseThrow(() -> new ResourceNotFoundException("Manager role not found"));
+
+        // Set the manager's role
+        manager.setRole(managerRole);
+        manager.setDepartment(department);
+        userRepository.save(manager);
+
+        // Set the department manager
+        department.setManager(manager);
+        Department savedDepartment = departmentRepository.save(department);
+        
+        return DepartmentDTO.builder()
+                .id(savedDepartment.getId())
+                .name(savedDepartment.getName())
+                .description(savedDepartment.getDescription())
+                .enterpriseId(savedDepartment.getEnterprise().getId())
+                .enterpriseName(savedDepartment.getEnterprise().getName())
+                .managerId(savedDepartment.getManager() != null ? savedDepartment.getManager().getId() : null)
+                .managerName(savedDepartment.getManager() != null ? savedDepartment.getManager().getFullName() : null)
+                .employeeCount(savedDepartment.getEmployees().size())
+                .itemCount(savedDepartment.getItems().size())
                 .build();
     }
 }

@@ -4,14 +4,19 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Entity
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"department", "enterprise", "role"})
 @Table(name = "users")
 public class User {
 
@@ -50,7 +55,7 @@ public class User {
     @JoinColumn(name = "enterprise_id")
     private Enterprise enterprise;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
     private Department department;
 
@@ -58,7 +63,7 @@ public class User {
     @JoinColumn(name = "manager_id")
     private User manager;
 
-    @OneToMany(mappedBy = "manager")
+    @OneToMany(mappedBy = "manager", fetch = FetchType.LAZY)
     private Set<User> subordinates = new HashSet<>();
 
     @Column(name = "created_at", updatable = false)
@@ -69,35 +74,37 @@ public class User {
 
     // Helper method to get permissions
     public Set<Permission> getPermissions() {
-        return role.getPermissions();
+        return role != null ? role.getPermissions() : new HashSet<>();
     }
 
-    public void addSubordinate(User subordinate) {
-        subordinates.add(subordinate);
-        subordinate.setManager(this);
-    }
-
-    public void removeSubordinate(User subordinate) {
-        subordinates.remove(subordinate);
-        subordinate.setManager(null);
-    }
-
+    // Helper method to safely get enterprise ID
     public Long getEnterpriseId() {
         return enterprise != null ? enterprise.getId() : null;
     }
 
-    public void setEnterpriseId(Long enterpriseId) {
-        if (enterpriseId == null) {
-            this.enterprise = null;
-        } else {
-            Enterprise e = new Enterprise();
-            e.setId(enterpriseId);
-            this.enterprise = e;
-        }
-    }
-
+    // Helper method to safely get manager ID
     public Long getManagerId() {
         return manager != null ? manager.getId() : null;
+    }
+
+    // Helper method to safely get department ID
+    public Long getDepartmentId() {
+        return department != null ? department.getId() : null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof User)) return false;
+        User user = (User) o;
+        return Objects.equals(id, user.id) &&
+               Objects.equals(username, user.username) &&
+               Objects.equals(email, user.email);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, username, email);
     }
 
     @Override

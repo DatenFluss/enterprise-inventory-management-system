@@ -9,11 +9,11 @@ import com.enterprise.inventorymanagement.model.request.RequestItem;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import com.enterprise.inventorymanagement.repository.*;
 import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,25 +68,28 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         request.setTargetDepartment(department);
         request.setComments(requestDTO.getComments());
         request.setStatus(RequestStatus.PENDING);
+        request.setRequestDate(LocalDateTime.now());
 
         // Add request items
-        for (RequestItemDTO itemDTO : requestDTO.getRequestItems()) {
-            InventoryItem item = itemRepository.findById(itemDTO.getItemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemDTO.getItemId()));
+        if (requestDTO.getRequestItems() != null) {
+            for (RequestItemDTO itemDTO : requestDTO.getRequestItems()) {
+                InventoryItem item = itemRepository.findById(itemDTO.getItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemDTO.getItemId()));
 
-            // Validate quantity
-            if (itemDTO.getQuantity() > item.getQuantity()) {
-                throw new IllegalArgumentException(
-                    String.format("Requested quantity (%d) exceeds available quantity (%d) for item: %s",
-                        itemDTO.getQuantity(), item.getQuantity(), item.getName())
-                );
+                // Validate quantity
+                if (itemDTO.getQuantity() > item.getQuantity()) {
+                    throw new IllegalArgumentException(
+                        String.format("Requested quantity (%d) exceeds available quantity (%d) for item: %s",
+                            itemDTO.getQuantity(), item.getQuantity(), item.getName())
+                    );
+                }
+
+                RequestItem requestItem = new RequestItem();
+                requestItem.setInventoryItem(item);
+                requestItem.setQuantity(itemDTO.getQuantity());
+                requestItem.setComments(itemDTO.getComments());
+                request.addRequestItem(requestItem);
             }
-
-            RequestItem requestItem = new RequestItem();
-            requestItem.setInventoryItem(item);
-            requestItem.setQuantity(itemDTO.getQuantity());
-            requestItem.setComments(itemDTO.getComments());
-            request.addRequestItem(requestItem);
         }
 
         // Save the request
@@ -128,17 +131,17 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
         itemRequestRepository.save(request);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByWarehouseId(Long warehouseId) {
-        return itemRequestRepository.findByWarehouseId(warehouseId)
+        return itemRequestRepository.findBySourceWarehouseId(warehouseId)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ItemRequestDTO> getRequestsByDepartmentId(Long departmentId) {
-        return itemRequestRepository.findByDepartmentId(departmentId)
+        return itemRequestRepository.findByTargetDepartmentId(departmentId)
                 .stream()
                 .map(this::convertToRequestDTO)
                 .collect(Collectors.toList());
@@ -156,7 +159,7 @@ public class InventoryItemServiceImpl extends ServiceCommon implements Inventory
                 .departmentId(request.getTargetDepartment().getId())
                 .departmentName(request.getTargetDepartment().getName())
                 .requestItems(itemDTOs)
-                .status(request.getStatus().toString())
+                .status(request.getStatus())
                 .comments(request.getComments())
                 .responseComments(request.getResponseComments())
                 .requesterId(request.getRequester().getId())

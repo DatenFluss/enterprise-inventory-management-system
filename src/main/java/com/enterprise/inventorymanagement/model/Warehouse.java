@@ -38,6 +38,10 @@ public class Warehouse {
     @JoinColumn(name = "manager_id")
     private User manager;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "operator_id")
+    private User operator;
+
     @OneToMany(mappedBy = "warehouse", fetch = FetchType.LAZY)
     private Set<InventoryItem> items = new HashSet<>();
 

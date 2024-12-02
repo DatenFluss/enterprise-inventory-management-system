@@ -1,8 +1,6 @@
 package com.enterprise.inventorymanagement.model.dto;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
+import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,30 +15,19 @@ import java.util.List;
 @AllArgsConstructor
 public class ItemRequestDTO {
     private Long id;
-    
-    @NotNull(message = "Source warehouse ID is required")
-    private Long warehouseId;
-    private String warehouseName;
-    
-    @NotNull(message = "Target department ID is required")
-    private Long departmentId;
-    private String departmentName;
-    
-    @NotEmpty(message = "Request must contain at least one item")
-    @Valid
-    private List<RequestItemDTO> requestItems;
-    
-    private String status;
-    private String comments;
-    private String responseComments;
-    
     private Long requesterId;
     private String requesterName;
-    
-    private Long processorId;
-    private String processorName;
-    
+    private Long warehouseId;
+    private String warehouseName;
+    private Long departmentId;
+    private String departmentName;
+    private RequestStatus status;
     private LocalDateTime requestDate;
     private LocalDateTime processedDate;
+    private String comments;
+    private String responseComments;
+    private Long processorId;
+    private String processorName;
+    private List<RequestItemDTO> requestItems;
 }
 

@@ -8,10 +8,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "inventory_items")
+@Table(name = "items")
 @Data
 @NoArgsConstructor
-public class InventoryItem {
+public class Item {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -47,27 +47,10 @@ public class InventoryItem {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
-    // Helper methods
-    public Long getWarehouseId() {
-        return warehouse != null ? warehouse.getId() : null;
-    }
-
-    public String getWarehouseName() {
-        return warehouse != null ? warehouse.getName() : null;
-    }
-
-    public Long getDepartmentId() {
-        return department != null ? department.getId() : null;
-    }
-
-    public String getDepartmentName() {
-        return department != null ? department.getName() : null;
-    }
-}
+} 

@@ -1,10 +1,10 @@
 package com.enterprise.inventorymanagement.model;
 
 public enum RoleName {
-    ADMIN,
-    OWNER,
-    MANAGER,
-    EMPLOYEE,
-    WAREHOUSE_OPERATOR,
-    UNAFFILIATED
+    ROLE_ADMIN,
+    ROLE_ENTERPRISE_OWNER,
+    ROLE_MANAGER,
+    ROLE_EMPLOYEE,
+    ROLE_WAREHOUSE_OPERATOR,
+    ROLE_UNAFFILIATED
 }

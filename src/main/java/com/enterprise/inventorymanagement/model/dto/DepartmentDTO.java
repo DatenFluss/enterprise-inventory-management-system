@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,4 +21,5 @@ public class DepartmentDTO {
     private String managerName;
     private int employeeCount;
     private int itemCount;
+    private Set<Long> employeeIds;
 }

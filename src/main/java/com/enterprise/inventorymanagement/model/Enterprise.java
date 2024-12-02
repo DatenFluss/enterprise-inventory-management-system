@@ -30,6 +30,16 @@ public class Enterprise {
     @Email(message = "Email should be valid")
     private String contactEmail;
 
-    @OneToMany(mappedBy = "enterprise", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "enterprise", fetch = FetchType.LAZY)
     private Set<User> employees = new HashSet<>();
+
+    // Helper method to avoid circular loading
+    public Long getId() {
+        return id;
+    }
+
+    // Helper method to safely get employee count
+    public int getEmployeeCount() {
+        return employees != null ? employees.size() : 0;
+    }
 }

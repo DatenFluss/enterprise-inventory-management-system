@@ -2,102 +2,84 @@ package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.model.User;
 import com.enterprise.inventorymanagement.model.Role;
+import com.enterprise.inventorymanagement.model.Permission;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.Serial;
 import java.util.Collection;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 @Getter
 public class UserDetailsImpl implements UserDetails {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserDetailsImpl.class);
+
     @Serial
     private static final long serialVersionUID = 1L;
 
     private final Long id;
-    private final String fullName;
     private final String username;
+    private final String fullName;
     private final String email;
     private final String password;
     private final Long enterpriseId;
-    private final Long managerId;
     private final String role;
-    private final boolean active;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserDetailsImpl(
-            Long id,
-            String fullName,
-            String username,
-            String email,
-            String password,
-            Long enterpriseId,
-            Long managerId,
-            String role,
-            boolean active,
-            Collection<? extends GrantedAuthority> authorities
-    ) {
+    public UserDetailsImpl(Long id, String username, String fullName, String email, String password, 
+                         Long enterpriseId, String role, Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
-        this.fullName = fullName;
         this.username = username;
+        this.fullName = fullName;
         this.email = email;
         this.password = password;
         this.enterpriseId = enterpriseId;
-        this.managerId = managerId;
         this.role = role;
-        this.active = active;
         this.authorities = authorities;
+        logger.debug("Created UserDetailsImpl - username: {}, role: {}, authorities: {}", 
+            username, role, authorities);
     }
 
     public static UserDetailsImpl build(User user) {
-        Role role = user.getRole();
-        Collection<GrantedAuthority> authorities = role.getPermissions().stream()
-                .map(permission -> new SimpleGrantedAuthority(permission.getName()))
-                .collect(Collectors.toList());
+        logger.debug("Building UserDetails for user: {} with role: {}", 
+            user.getUsername(), user.getRole().getName());
+        
+        // Get role name and ensure it has ROLE_ prefix
+        String roleName = user.getRole().getName().toString();
+        String roleAuthority = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;
+        
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority(roleAuthority));
+        
+        // Add permissions as authorities
+        if (user.getRole().getPermissions() != null) {
+            authorities.addAll(user.getRole().getPermissions().stream()
+                    .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+                    .collect(Collectors.toSet()));
+        }
 
-        // Add role itself as an authority
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
+        logger.debug("Role authority: {}", roleAuthority);
+        logger.debug("All authorities: {}", authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList()));
 
         return new UserDetailsImpl(
                 user.getId(),
-                user.getFullName(),
                 user.getUsername(),
+                user.getFullName(),
                 user.getEmail(),
                 user.getPassword(),
                 user.getEnterprise() != null ? user.getEnterprise().getId() : null,
-                user.getManager() != null ? user.getManager().getId() : null,
-                role.getName(),
-                user.getActive(),
+                roleAuthority,
                 authorities
         );
-    }
-
-    public boolean hasEnterpriseAccess(Long enterpriseId) {
-        return this.enterpriseId != null && this.enterpriseId.equals(enterpriseId);
-    }
-
-    public boolean isManager() {
-        return authorities.stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
-    }
-
-    public boolean isAdmin() {
-        return authorities.stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-    }
-
-    public boolean isOwner() {
-        return authorities.stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_OWNER"));
-    }
-
-    public boolean hasManagerAccess(Long userId) {
-        if (isAdmin() || isOwner()) return true;
-        // Add logic to check if the user is a subordinate
-        return isManager() && userId != null;
     }
 
     @Override
@@ -106,33 +88,23 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
-    }
-
-    @Override
     public boolean isAccountNonExpired() {
-        return active;
+        return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return active;
+        return true;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return active;
+        return true;
     }
 
     @Override
     public boolean isEnabled() {
-        return active;
+        return true;
     }
 
     @Override
@@ -156,7 +128,9 @@ public class UserDetailsImpl implements UserDetails {
                 ", email='" + email + '\'' +
                 ", enterpriseId=" + enterpriseId +
                 ", role='" + role + '\'' +
-                ", active=" + active +
+                ", authorities=" + authorities.stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.joining(", ")) +
                 '}';
     }
 }

@@ -3,12 +3,18 @@ package com.enterprise.inventorymanagement.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Entity
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"enterprise", "manager", "employees", "items"})
 @Table(name = "departments")
 public class Department {
     @Id
@@ -37,4 +43,18 @@ public class Department {
     @Column(name = "description")
     @Size(max = 500, message = "Description cannot exceed 500 characters")
     private String description;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Department)) return false;
+        Department that = (Department) o;
+        return Objects.equals(id, that.id) &&
+               Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);
+    }
 }

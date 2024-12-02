@@ -1,0 +1,1 @@
+ALTER TABLE item_requests RENAME COLUMN source_warehouse_id TO warehouse_id; 

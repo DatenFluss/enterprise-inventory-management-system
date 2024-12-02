@@ -2,7 +2,7 @@ package com.enterprise.inventorymanagement.service;
 
 import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -30,6 +30,7 @@ public interface ItemRequestService {
      * @param warehouseId The ID of the warehouse
      * @return List of requests for the warehouse
      */
+    @Transactional(readOnly = true)
     List<ItemRequestDTO> getRequestsByWarehouseId(Long warehouseId);
 
     /**
@@ -38,6 +39,7 @@ public interface ItemRequestService {
      * @param status The status to filter by
      * @return List of filtered requests for the warehouse
      */
+    @Transactional(readOnly = true)
     List<ItemRequestDTO> getRequestsByWarehouseIdAndStatus(Long warehouseId, RequestStatus status);
 
     /**
@@ -45,6 +47,7 @@ public interface ItemRequestService {
      * @param departmentId The ID of the department
      * @return List of requests for the department
      */
+    @Transactional(readOnly = true)
     List<ItemRequestDTO> getRequestsByDepartmentId(Long departmentId);
 
     /**
@@ -53,6 +56,24 @@ public interface ItemRequestService {
      * @param status The status to filter by
      * @return List of filtered requests for the department
      */
+    @Transactional(readOnly = true)
     List<ItemRequestDTO> getRequestsByDepartmentIdAndStatus(Long departmentId, RequestStatus status);
+
+    /**
+     * Get all requests for a specific user
+     * @param userId The ID of the user
+     * @return List of requests for the user
+     */
+    @Transactional(readOnly = true)
+    List<ItemRequestDTO> getRequestsByUserId(Long userId);
+
+    /**
+     * Get all requests for a specific user with a specific status
+     * @param userId The ID of the user
+     * @param status The status to filter by
+     * @return List of filtered requests for the user
+     */
+    @Transactional(readOnly = true)
+    List<ItemRequestDTO> getRequestsByUserIdAndStatus(Long userId, RequestStatus status);
 }
 

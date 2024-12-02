@@ -115,7 +115,7 @@ public class UserController {
      * Get User's Subordinates
      */
     @GetMapping("/subordinates")
-    @PreAuthorize("hasAnyAuthority('MANAGER', 'ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_ADMIN', 'ROLE_ENTERPRISE_OWNER')")
     public ResponseEntity<?> getUserSubordinates(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         List<UserDTO> subordinates = userService.getSubordinates(userDetails.getId());
         return ResponseEntity.ok(subordinates);
