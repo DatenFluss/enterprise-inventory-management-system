@@ -22,4 +22,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     
     @Query("SELECT d FROM Department d WHERE d.manager.id = :managerId")
     List<Department> findByManagerId(@Param("managerId") Long managerId);
+    
+    @Query("SELECT d FROM Department d LEFT JOIN FETCH d.employees WHERE d.id = :id")
+    Optional<Department> findByIdWithEmployees(@Param("id") Long id);
 }

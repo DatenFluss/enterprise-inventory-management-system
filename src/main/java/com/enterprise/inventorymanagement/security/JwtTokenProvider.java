@@ -60,6 +60,8 @@ public class JwtTokenProvider {
                 .claim("fullName", userPrincipal.getFullName())
                 .claim("email", userPrincipal.getEmail())
                 .claim("enterpriseId", userPrincipal.getEnterpriseId())
+                .claim("departmentId", userPrincipal.getDepartmentId())
+                .claim("departmentName", userPrincipal.getDepartmentName())
                 .claim("role", roleWithPrefix)
                 .claim("authorities", authorities)
                 .setIssuedAt(now)
@@ -67,7 +69,8 @@ public class JwtTokenProvider {
                 .signWith(key, SignatureAlgorithm.HS512)
                 .compact();
 
-        logger.debug("Generated token claims - role: {}, authorities: {}", roleWithPrefix, authorities);
+        logger.debug("Generated token claims - role: {}, authorities: {}, departmentId: {}", 
+            roleWithPrefix, authorities, userPrincipal.getDepartmentId());
         return token;
     }
 

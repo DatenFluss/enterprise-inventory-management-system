@@ -30,21 +30,26 @@ public class UserDetailsImpl implements UserDetails {
     private final String email;
     private final String password;
     private final Long enterpriseId;
+    private final Long departmentId;
+    private final String departmentName;
     private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserDetailsImpl(Long id, String username, String fullName, String email, String password, 
-                         Long enterpriseId, String role, Collection<? extends GrantedAuthority> authorities) {
+                         Long enterpriseId, Long departmentId, String departmentName, String role, 
+                         Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
         this.email = email;
         this.password = password;
         this.enterpriseId = enterpriseId;
+        this.departmentId = departmentId;
+        this.departmentName = departmentName;
         this.role = role;
         this.authorities = authorities;
-        logger.debug("Created UserDetailsImpl - username: {}, role: {}, authorities: {}", 
-            username, role, authorities);
+        logger.debug("Created UserDetailsImpl - username: {}, role: {}, departmentId: {}, authorities: {}", 
+            username, role, departmentId, authorities);
     }
 
     public static UserDetailsImpl build(User user) {
@@ -77,6 +82,8 @@ public class UserDetailsImpl implements UserDetails {
                 user.getEmail(),
                 user.getPassword(),
                 user.getEnterprise() != null ? user.getEnterprise().getId() : null,
+                user.getDepartment() != null ? user.getDepartment().getId() : null,
+                user.getDepartment() != null ? user.getDepartment().getName() : null,
                 roleAuthority,
                 authorities
         );
@@ -127,6 +134,8 @@ public class UserDetailsImpl implements UserDetails {
                 ", username='" + username + '\'' +
                 ", email='" + email + '\'' +
                 ", enterpriseId=" + enterpriseId +
+                ", departmentId=" + departmentId +
+                ", departmentName='" + departmentName + '\'' +
                 ", role='" + role + '\'' +
                 ", authorities=" + authorities.stream()
                         .map(GrantedAuthority::getAuthority)

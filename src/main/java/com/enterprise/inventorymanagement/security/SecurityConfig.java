@@ -59,6 +59,9 @@ public class SecurityConfig {
                     .requestMatchers("/api/requests/**").hasAnyAuthority("VIEW_REQUESTS", "MANAGE_REQUESTS", "VIEW_PENDING_REQUESTS", "VIEW_OWN_REQUESTS")
                     .requestMatchers("/api/department-invites/my").authenticated()
                     .requestMatchers("/api/department-invites/**").hasAnyAuthority("VIEW_DEPARTMENT_INVITES", "MANAGE_DEPARTMENT")
+                    .requestMatchers(HttpMethod.POST, "/api/employee-requests").hasAuthority("REQUEST_ITEMS")
+                    .requestMatchers(HttpMethod.GET, "/api/employee-requests/my").hasAuthority("VIEW_OWN_ITEM_REQUESTS")
+                    .requestMatchers("/api/employee-requests/**").hasAuthority("MANAGE_EMPLOYEE_REQUESTS")
                     .anyRequest().authenticated();
                 logger.debug("Authorization rules configured successfully");
             })

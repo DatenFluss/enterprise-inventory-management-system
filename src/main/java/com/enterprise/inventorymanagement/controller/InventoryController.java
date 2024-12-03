@@ -213,5 +213,53 @@ public class InventoryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    @PostMapping("/department/{departmentId}/return-items")
+    @PreAuthorize("hasAuthority('RETURN_ITEMS')")
+    public ResponseEntity<Map<String, Object>> returnItemsToWarehouse(
+            @PathVariable Long departmentId,
+            @RequestBody List<Map<String, Object>> returnItems) {
+        try {
+            for (Map<String, Object> item : returnItems) {
+                Long itemId = ((Number) item.get("itemId")).longValue();
+                Integer quantity = ((Number) item.get("quantity")).intValue();
+                Long warehouseId = ((Number) item.get("warehouseId")).longValue();
+                
+                inventoryService.returnItemToWarehouse(itemId, quantity, departmentId, warehouseId);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Items returned successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PostMapping("/employee/return-items")
+    @PreAuthorize("hasAuthority('RETURN_ITEMS')")
+    public ResponseEntity<Map<String, Object>> returnItemsToDepartment(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestBody List<Map<String, Object>> returnItems) {
+        try {
+            for (Map<String, Object> item : returnItems) {
+                Long itemId = ((Number) item.get("itemId")).longValue();
+                Integer quantity = ((Number) item.get("quantity")).intValue();
+                Long departmentId = ((Number) item.get("departmentId")).longValue();
+                
+                inventoryService.returnItemToDepartment(itemId, quantity, userDetails.getId(), departmentId);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Items returned successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
 }
 

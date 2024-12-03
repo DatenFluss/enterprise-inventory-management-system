@@ -62,4 +62,24 @@ public interface InventoryManagementService {
      * @return List of items in use by the user
      */
     List<ItemDTO> getItemsInUseByUserId(Long userId);
+
+    /**
+     * Return items from department back to warehouse
+     * @param itemId The ID of the item to return
+     * @param quantity The quantity to return
+     * @param departmentId The ID of the department returning the item
+     * @param warehouseId The ID of the warehouse to return to
+     */
+    @Transactional
+    void returnItemToWarehouse(Long itemId, Integer quantity, Long departmentId, Long warehouseId);
+
+    /**
+     * Return items from employee back to department
+     * @param itemId The ID of the item to return
+     * @param quantity The quantity to return
+     * @param userId The ID of the user returning the item
+     * @param departmentId The ID of the department to return to
+     */
+    @Transactional
+    void returnItemToDepartment(Long itemId, Integer quantity, Long userId, Long departmentId);
 } 

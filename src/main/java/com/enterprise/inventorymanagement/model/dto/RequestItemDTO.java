@@ -17,6 +17,7 @@ public class RequestItemDTO {
     @NotNull(message = "Item ID is required")
     private Long itemId;
     private String itemName;
+    private String warehouseName;
     
     @NotNull(message = "Quantity is required")
     @Min(value = 1, message = "Quantity must be at least 1")

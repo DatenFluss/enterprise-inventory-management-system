@@ -90,6 +90,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     claims.get("email", String.class),
                     "", // password not needed for token auth
                     claims.get("enterpriseId", Long.class),
+                    claims.get("departmentId", Long.class),
+                    claims.get("departmentName", String.class),
                     role,
                     grantedAuthorities
                 );

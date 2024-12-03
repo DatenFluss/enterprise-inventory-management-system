@@ -108,40 +108,61 @@ public class ItemRequestServiceImpl implements ItemRequestService {
                     .orElseThrow(() -> new ResourceNotFoundException("Target department not found"));
                 
             for (RequestItem requestItem : request.getRequestItems()) {
-                InventoryItem warehouseItem = inventoryItemRepository.findById(requestItem.getInventoryItem().getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Warehouse item not found"));
+                // Get all warehouse items with the same name
+                List<InventoryItem> warehouseItems = inventoryItemRepository.findByWarehouse_Id(request.getSourceWarehouse().getId())
+                    .stream()
+                    .filter(item -> item.getName().equals(requestItem.getInventoryItem().getName()))
+                    .collect(Collectors.toList());
 
-                if (warehouseItem.getQuantity() < requestItem.getQuantity()) {
+                // Calculate total available quantity
+                int totalAvailable = warehouseItems.stream()
+                    .mapToInt(InventoryItem::getQuantity)
+                    .sum();
+
+                if (totalAvailable < requestItem.getQuantity()) {
                     throw new IllegalStateException(
-                        String.format("Insufficient quantity available for item: %s", warehouseItem.getName())
+                        String.format("Insufficient quantity available for item: %s", requestItem.getInventoryItem().getName())
                     );
                 }
-                
+
                 // Deduct from warehouse inventory
-                warehouseItem.setQuantity(warehouseItem.getQuantity() - requestItem.getQuantity());
-                inventoryItemRepository.saveAndFlush(warehouseItem);
+                int remainingToDeduct = requestItem.getQuantity();
+                for (InventoryItem warehouseItem : warehouseItems) {
+                    if (remainingToDeduct <= 0) break;
+
+                    int deductFromThis = Math.min(warehouseItem.getQuantity(), remainingToDeduct);
+                    warehouseItem.setQuantity(warehouseItem.getQuantity() - deductFromThis);
+                    remainingToDeduct -= deductFromThis;
+
+                    if (warehouseItem.getQuantity() == 0) {
+                        inventoryItemRepository.delete(warehouseItem);
+                    } else {
+                        inventoryItemRepository.save(warehouseItem);
+                    }
+                }
                 
                 // Add to department inventory
                 InventoryItem departmentItem = inventoryItemRepository
-                    .findByNameAndDepartment_Id(warehouseItem.getName(), targetDepartment.getId())
+                    .findByNameAndDepartment_Id(requestItem.getInventoryItem().getName(), targetDepartment.getId())
                     .orElse(new InventoryItem());
                 
                 if (departmentItem.getId() == null) {
                     // This is a new item for the department
-                    departmentItem.setName(warehouseItem.getName());
-                    departmentItem.setDescription(warehouseItem.getDescription());
+                    departmentItem.setName(requestItem.getInventoryItem().getName());
+                    departmentItem.setDescription(requestItem.getInventoryItem().getDescription());
                     departmentItem.setDepartment(targetDepartment);
                     departmentItem.setQuantity(requestItem.getQuantity());
                     departmentItem.setEnterprise(targetDepartment.getEnterprise());
-                    departmentItem.setMinimumQuantity(warehouseItem.getMinimumQuantity());
-                    departmentItem.setPrice(warehouseItem.getPrice());
+                    departmentItem.setMinimumQuantity(requestItem.getInventoryItem().getMinimumQuantity());
+                    departmentItem.setPrice(requestItem.getInventoryItem().getPrice());
+                    departmentItem.setWarehouse(request.getSourceWarehouse());
                 } else {
                     // Update existing item quantity
                     departmentItem.setQuantity(departmentItem.getQuantity() + requestItem.getQuantity());
                 }
                 
                 // Save the department item
-                inventoryItemRepository.saveAndFlush(departmentItem);
+                inventoryItemRepository.save(departmentItem);
             }
         }
 

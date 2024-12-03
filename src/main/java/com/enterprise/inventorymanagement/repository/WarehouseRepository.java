@@ -11,7 +11,11 @@ import java.util.Optional;
 
 @Repository
 public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
-    @Query("SELECT w FROM Warehouse w WHERE w.enterprise.id = :enterpriseId")
+    @Query("SELECT DISTINCT w FROM Warehouse w " +
+           "LEFT JOIN FETCH w.enterprise " +
+           "LEFT JOIN FETCH w.manager " +
+           "LEFT JOIN FETCH w.operator " +
+           "WHERE w.enterprise.id = :enterpriseId")
     List<Warehouse> findByEnterpriseId(@Param("enterpriseId") Long enterpriseId);
     
     @Query("SELECT w FROM Warehouse w WHERE w.id = :id AND w.enterprise.id = :enterpriseId")
