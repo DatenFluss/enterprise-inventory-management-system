@@ -18,7 +18,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inventory")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true", maxAge = 3600)
+@CrossOrigin(origins = {
+    "http://localhost:3000",
+    "https://inventory-management-frontend-1072716398524.europe-central2.run.app"
+}, allowCredentials = "true", maxAge = 3600)
 public class InventoryController {
 
     private final InventoryManagementService inventoryService;
