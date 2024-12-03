@@ -35,6 +35,12 @@ public class ItemDTO {
     private Long enterpriseId;
     private String enterpriseName;
 
+    private Long userId;
+    private String userName;
+
+    private LocalDateTime checkedOutAt;
+    private LocalDateTime dueDate;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -11,6 +11,7 @@ import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
 import com.enterprise.inventorymanagement.model.dto.UserDTO;
+import com.enterprise.inventorymanagement.model.dto.WarehouseDTO;
 import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseInviteRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
@@ -379,6 +380,12 @@ public class EnterpriseController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/warehouses")
+    @PreAuthorize("hasAuthority('VIEW_WAREHOUSES')")
+    public ResponseEntity<List<WarehouseDTO>> getEnterpriseWarehouses(@PathVariable Long id) {
+        return ResponseEntity.ok(enterpriseService.getWarehousesByEnterpriseId(id));
     }
 
 }

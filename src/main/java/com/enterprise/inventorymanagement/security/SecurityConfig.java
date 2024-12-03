@@ -14,8 +14,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,7 +25,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -43,27 +40,25 @@ public class SecurityConfig {
     private UserDetailsServiceImpl userDetailsService;
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authz -> {
                 logger.debug("Configuring authorization rules");
                 authz
                     .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login", "/api/enterprises/register").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    // Public endpoints that only require authentication
                     .requestMatchers("/api/users/me", "/api/enterprises/current").authenticated()
-                    // Protected endpoints requiring specific roles
-                    .requestMatchers("/api/users/subordinates/**").hasAnyRole("MANAGER", "ENTERPRISE_OWNER", "ADMIN")
+                    .requestMatchers("/api/users/subordinates/**").hasAuthority("VIEW_SUBORDINATES")
                     .requestMatchers("/api/enterprises/employees/**").hasAnyRole("MANAGER", "ENTERPRISE_OWNER", "ADMIN")
-                    .requestMatchers("/api/inventory/**").hasAuthority("VIEW_INVENTORY")
-                    .requestMatchers("/api/requests/**").hasAuthority("VIEW_REQUESTS")
+                    .requestMatchers("/api/enterprises/*/warehouses/**").hasAuthority("VIEW_WAREHOUSES")
+                    .requestMatchers("/api/inventory/**", "/api/items/**").hasAuthority("VIEW_INVENTORY")
+                    .requestMatchers("/api/departments/*/employees").hasAuthority("VIEW_INVENTORY")
+                    .requestMatchers("/api/requests/my").hasAuthority("VIEW_MY_REQUESTS")
+                    .requestMatchers("/api/requests/**").hasAnyAuthority("VIEW_REQUESTS", "MANAGE_REQUESTS", "VIEW_PENDING_REQUESTS", "VIEW_OWN_REQUESTS")
+                    .requestMatchers("/api/department-invites/my").authenticated()
+                    .requestMatchers("/api/department-invites/**").hasAnyAuthority("VIEW_DEPARTMENT_INVITES", "MANAGE_DEPARTMENT")
                     .anyRequest().authenticated();
                 logger.debug("Authorization rules configured successfully");
             })
@@ -82,25 +77,19 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        configuration.setExposedHeaders(Arrays.asList("Authorization"));
-        configuration.setAllowCredentials(true);
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
     }
 
     @Bean
@@ -108,13 +97,23 @@ public class SecurityConfig {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
-        logger.debug("Configured DaoAuthenticationProvider with UserDetailsService");
         return authProvider;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 }
 

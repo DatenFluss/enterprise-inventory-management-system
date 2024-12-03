@@ -25,6 +25,21 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     @Query("SELECT i FROM InventoryItem i WHERE i.warehouse.id = :warehouseId")
     List<InventoryItem> findAllByWarehouseId(@Param("warehouseId") Long warehouseId);
 
+    @Query("SELECT SUM(i.quantity) FROM InventoryItem i WHERE i.warehouse.id = :warehouseId")
+    Integer countItemsByWarehouseId(@Param("warehouseId") Long warehouseId);
+
     @Query("SELECT i FROM InventoryItem i WHERE i.department.id = :departmentId")
     List<InventoryItem> findAllByDepartmentId(@Param("departmentId") Long departmentId);
+
+    List<InventoryItem> findAllByUserId(Long userId);
+
+    List<InventoryItem> findByDepartment_Id(Long departmentId);
+
+    @Query("SELECT i FROM InventoryItem i " +
+           "LEFT JOIN FETCH i.department d " +
+           "LEFT JOIN FETCH i.enterprise e " +
+           "WHERE i.name = :name AND i.department.id = :departmentId")
+    Optional<InventoryItem> findByNameAndDepartment_Id(@Param("name") String name, @Param("departmentId") Long departmentId);
+
+    List<InventoryItem> findByWarehouse_Id(Long warehouseId);
 }

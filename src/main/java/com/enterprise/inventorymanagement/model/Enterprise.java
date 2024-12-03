@@ -8,6 +8,8 @@ import lombok.Data;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Data
@@ -30,8 +32,11 @@ public class Enterprise {
     @Email(message = "Email should be valid")
     private String contactEmail;
 
-    @OneToMany(mappedBy = "enterprise", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "enterprise", fetch = FetchType.EAGER)
     private Set<User> employees = new HashSet<>();
+
+    @OneToMany(mappedBy = "enterprise", fetch = FetchType.EAGER)
+    private List<Department> departments = new ArrayList<>();
 
     // Helper method to avoid circular loading
     public Long getId() {

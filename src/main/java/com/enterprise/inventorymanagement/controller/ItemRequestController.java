@@ -33,7 +33,7 @@ public class ItemRequestController {
      * Create a new item request (Department Manager)
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('MANAGE_DEPARTMENT')")
+    @PreAuthorize("hasAuthority('VIEW_OWN_REQUESTS')")
     public ResponseEntity<Map<String, Object>> createRequest(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @Valid @RequestBody ItemRequestDTO requestDTO) {
@@ -124,7 +124,7 @@ public class ItemRequestController {
      * Get requests for the current user (Employee)
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('VIEW_REQUESTS')")
+    @PreAuthorize("hasAnyAuthority('VIEW_REQUESTS', 'VIEW_PENDING_REQUESTS', 'VIEW_OWN_REQUESTS')")
     public ResponseEntity<Map<String, Object>> getUserRequests(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestParam(required = false) RequestStatus status) {
@@ -173,6 +173,61 @@ public class ItemRequestController {
             Map<String, Object> response = new HashMap<>();
             response.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "An unexpected error occurred");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PutMapping("/{requestId}/approve")
+    @PreAuthorize("hasAuthority('MANAGE_REQUESTS')")
+    public ResponseEntity<?> approveRequest(@PathVariable Long requestId,
+                                            @RequestBody(required = false) String comments) {
+        try {
+            itemRequestService.approveItemRequest(requestId, comments);
+            return ResponseEntity.ok().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{requestId}/reject")
+    @PreAuthorize("hasAuthority('MANAGE_REQUESTS')")
+    public ResponseEntity<?> rejectRequest(@PathVariable Long requestId,
+                                           @RequestBody(required = false) String comments) {
+        try {
+            itemRequestService.rejectItemRequest(requestId, comments);
+            return ResponseEntity.ok().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    /**
+     * Get requests for the current user
+     */
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyAuthority('VIEW_MY_REQUESTS', 'VIEW_OWN_REQUESTS')")
+    public ResponseEntity<Map<String, Object>> getMyRequests(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam(required = false) RequestStatus status) {
+        try {
+            List<ItemRequestDTO> requests;
+            if (status != null) {
+                requests = itemRequestService.getRequestsByUserIdAndStatus(userDetails.getId(), status);
+            } else {
+                requests = itemRequestService.getRequestsByUserId(userDetails.getId());
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("count", requests.size());
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
             response.put("error", "An unexpected error occurred");

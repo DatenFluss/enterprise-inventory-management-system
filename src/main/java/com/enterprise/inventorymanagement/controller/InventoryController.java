@@ -193,5 +193,25 @@ public class InventoryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    /**
+     * Get items in use by the current user
+     */
+    @GetMapping("/items/in-use")
+    @PreAuthorize("hasAuthority('VIEW_INVENTORY')")
+    public ResponseEntity<Map<String, Object>> getItemsInUse(
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            List<ItemDTO> items = inventoryService.getItemsInUseByUserId(userDetails.getId());
+            Map<String, Object> response = new HashMap<>();
+            response.put("items", items);
+            response.put("count", items.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "An unexpected error occurred");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }
 

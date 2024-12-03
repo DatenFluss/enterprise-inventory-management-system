@@ -6,6 +6,7 @@ import com.enterprise.inventorymanagement.model.dto.DepartmentDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseDTO;
 import com.enterprise.inventorymanagement.model.dto.EnterpriseInviteDTO;
 import com.enterprise.inventorymanagement.model.dto.UserDTO;
+import com.enterprise.inventorymanagement.model.dto.WarehouseDTO;
 import com.enterprise.inventorymanagement.model.request.DepartmentRequest;
 import com.enterprise.inventorymanagement.model.request.EnterpriseRegistrationRequest;
 
@@ -82,5 +83,6 @@ public interface EnterpriseService {
     List<DepartmentDTO> getEnterpriseDepartments(Long enterpriseId);
     DepartmentDTO createDepartment(Long enterpriseId, DepartmentRequest request);
     DepartmentDTO assignDepartmentManager(Long departmentId, Long userId, Long enterpriseId);
+    List<WarehouseDTO> getWarehousesByEnterpriseId(Long enterpriseId);
 }
 

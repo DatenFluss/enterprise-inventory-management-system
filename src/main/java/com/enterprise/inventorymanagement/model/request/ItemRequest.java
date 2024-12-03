@@ -31,7 +31,7 @@ public class ItemRequest {
 
     // The target department
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id", nullable = false)
+    @JoinColumn(name = "target_department_id", nullable = false)
     private Department targetDepartment;
 
     // List of requested items with their quantities

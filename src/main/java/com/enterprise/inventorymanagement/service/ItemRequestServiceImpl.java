@@ -58,6 +58,8 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         request.setStatus(RequestStatus.PENDING);
         request.setRequestDate(LocalDateTime.now());
 
+        request = itemRequestRepository.save(request);
+
         if (requestDTO.getRequestItems() != null) {
             for (RequestItemDTO itemDTO : requestDTO.getRequestItems()) {
                 InventoryItem item = inventoryItemRepository.findById(itemDTO.getItemId())
@@ -74,18 +76,23 @@ public class ItemRequestServiceImpl implements ItemRequestService {
                 requestItem.setInventoryItem(item);
                 requestItem.setQuantity(itemDTO.getQuantity());
                 requestItem.setComments(itemDTO.getComments());
-                request.addRequestItem(requestItem);
+                requestItem.setRequest(request);
+                request.getRequestItems().add(requestItem);
             }
         }
 
         request = itemRequestRepository.save(request);
+
+        request = itemRequestRepository.findById(request.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Request not found after creation"));
+
         return convertToRequestDTO(request);
     }
 
     @Override
     @Transactional
     public void handleItemRequest(Long requestId, boolean approved, String responseComments) {
-        ItemRequest request = itemRequestRepository.findById(requestId)
+        ItemRequest request = itemRequestRepository.findByIdWithItems(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Request not found"));
 
         if (request.getStatus() != RequestStatus.PENDING) {
@@ -97,19 +104,49 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         request.setProcessedDate(LocalDateTime.now());
 
         if (approved) {
+            Department targetDepartment = departmentRepository.findById(request.getTargetDepartment().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Target department not found"));
+                
             for (RequestItem requestItem : request.getRequestItems()) {
-                InventoryItem item = requestItem.getInventoryItem();
-                if (item.getQuantity() < requestItem.getQuantity()) {
+                InventoryItem warehouseItem = inventoryItemRepository.findById(requestItem.getInventoryItem().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Warehouse item not found"));
+
+                if (warehouseItem.getQuantity() < requestItem.getQuantity()) {
                     throw new IllegalStateException(
-                        String.format("Insufficient quantity available for item: %s", item.getName())
+                        String.format("Insufficient quantity available for item: %s", warehouseItem.getName())
                     );
                 }
-                item.setQuantity(item.getQuantity() - requestItem.getQuantity());
-                inventoryItemRepository.save(item);
+                
+                // Deduct from warehouse inventory
+                warehouseItem.setQuantity(warehouseItem.getQuantity() - requestItem.getQuantity());
+                inventoryItemRepository.saveAndFlush(warehouseItem);
+                
+                // Add to department inventory
+                InventoryItem departmentItem = inventoryItemRepository
+                    .findByNameAndDepartment_Id(warehouseItem.getName(), targetDepartment.getId())
+                    .orElse(new InventoryItem());
+                
+                if (departmentItem.getId() == null) {
+                    // This is a new item for the department
+                    departmentItem.setName(warehouseItem.getName());
+                    departmentItem.setDescription(warehouseItem.getDescription());
+                    departmentItem.setDepartment(targetDepartment);
+                    departmentItem.setQuantity(requestItem.getQuantity());
+                    departmentItem.setEnterprise(targetDepartment.getEnterprise());
+                    departmentItem.setMinimumQuantity(warehouseItem.getMinimumQuantity());
+                    departmentItem.setPrice(warehouseItem.getPrice());
+                } else {
+                    // Update existing item quantity
+                    departmentItem.setQuantity(departmentItem.getQuantity() + requestItem.getQuantity());
+                }
+                
+                // Save the department item
+                inventoryItemRepository.saveAndFlush(departmentItem);
             }
         }
 
-        itemRequestRepository.save(request);
+        // Save and flush the request
+        itemRequestRepository.saveAndFlush(request);
     }
 
     @Override
@@ -196,5 +233,17 @@ public class ItemRequestServiceImpl implements ItemRequestService {
                 .quantity(requestItem.getQuantity())
                 .comments(requestItem.getComments())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void approveItemRequest(Long requestId, String comments) {
+        handleItemRequest(requestId, true, comments);
+    }
+
+    @Override
+    @Transactional
+    public void rejectItemRequest(Long requestId, String comments) {
+        handleItemRequest(requestId, false, comments);
     }
 } 

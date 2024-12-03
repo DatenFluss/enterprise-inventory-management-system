@@ -4,14 +4,17 @@ import com.enterprise.inventorymanagement.exceptions.ResourceNotFoundException;
 import com.enterprise.inventorymanagement.model.*;
 import com.enterprise.inventorymanagement.model.dto.ItemDTO;
 import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
+import com.enterprise.inventorymanagement.model.dto.RequestItemDTO;
 import com.enterprise.inventorymanagement.model.dto.WarehouseDTO;
 import com.enterprise.inventorymanagement.model.request.ItemRequest;
+import com.enterprise.inventorymanagement.model.request.RequestItem;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import com.enterprise.inventorymanagement.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,7 +26,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final EnterpriseRepository enterpriseRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final ItemRepository itemRepository;
+    private final InventoryItemRepository itemRepository;
     private final ItemRequestRepository requestRepository;
 
     @Autowired
@@ -31,7 +34,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                                 EnterpriseRepository enterpriseRepository,
                                 UserRepository userRepository,
                                 RoleRepository roleRepository,
-                                ItemRepository itemRepository,
+                                InventoryItemRepository itemRepository,
                                 ItemRequestRepository requestRepository) {
         this.warehouseRepository = warehouseRepository;
         this.enterpriseRepository = enterpriseRepository;
@@ -154,7 +157,7 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public List<ItemDTO> getWarehouseItems(Long warehouseId) {
-        return itemRepository.findByWarehouse_Id(warehouseId)
+        return itemRepository.findAllByWarehouseId(warehouseId)
                 .stream()
                 .map(this::convertToItemDTO)
                 .collect(Collectors.toList());
@@ -171,6 +174,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         item.setQuantity(itemDTO.getQuantity());
         item.setWarehouse(warehouse);
         item.setEnterprise(warehouse.getEnterprise());
+        item.setUpdatedAt(LocalDateTime.now());
 
         return convertToItemDTO(itemRepository.save(item));
     }
@@ -192,6 +196,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     private WarehouseDTO convertToDTO(Warehouse warehouse) {
+        Integer itemCount = itemRepository.countItemsByWarehouseId(warehouse.getId());
         return WarehouseDTO.builder()
                 .id(warehouse.getId())
                 .name(warehouse.getName())
@@ -203,7 +208,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                 .managerName(warehouse.getManager() != null ? warehouse.getManager().getFullName() : null)
                 .operatorId(warehouse.getOperator() != null ? warehouse.getOperator().getId() : null)
                 .operatorName(warehouse.getOperator() != null ? warehouse.getOperator().getFullName() : null)
-                .itemCount(warehouse.getItems().size())
+                .itemCount(itemCount != null ? itemCount : 0)
                 .build();
     }
 
@@ -240,6 +245,19 @@ public class WarehouseServiceImpl implements WarehouseService {
                 .responseComments(request.getResponseComments())
                 .processorId(request.getProcessor() != null ? request.getProcessor().getId() : null)
                 .processorName(request.getProcessor() != null ? request.getProcessor().getUsername() : null)
+                .requestItems(request.getRequestItems().stream()
+                        .map(this::convertToRequestItemDTO)
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    private RequestItemDTO convertToRequestItemDTO(RequestItem requestItem) {
+        return RequestItemDTO.builder()
+                .id(requestItem.getId())
+                .itemId(requestItem.getInventoryItem().getId())
+                .itemName(requestItem.getInventoryItem().getName())
+                .quantity(requestItem.getQuantity())
+                .comments(requestItem.getComments())
                 .build();
     }
 }

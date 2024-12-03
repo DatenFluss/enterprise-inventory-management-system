@@ -34,7 +34,12 @@ public class Department {
     @JoinColumn(name = "manager_id")
     private User manager;
 
-    @OneToMany(mappedBy = "department", fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "department_employees",
+        joinColumns = @JoinColumn(name = "department_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
     private Set<User> employees = new HashSet<>();
 
     @OneToMany(mappedBy = "department", fetch = FetchType.LAZY)

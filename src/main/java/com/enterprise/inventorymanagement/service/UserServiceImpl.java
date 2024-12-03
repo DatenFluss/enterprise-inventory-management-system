@@ -87,7 +87,7 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
     @Override
     @Transactional
     public UserDTO getUserById(Long userId) throws ResourceNotFoundException {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdWithDepartment(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
         return convertToDTO(user);
     }
@@ -384,9 +384,12 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .active(user.getActive())
-                .enterpriseId(user.getEnterprise() != null ? user.getEnterprise().getId() : null)
-                .managerId(user.getManager() != null ? user.getManager().getId() : null)
-                .roleName(user.getRole().getName().name())
+                .roleName(user.getRole().getName().toString())
+                .enterpriseId(user.getEnterpriseId())
+                .managerId(user.getManagerId())
+                .departmentId(user.getDepartment() != null ? user.getDepartment().getId() : null)
+                .departmentName(user.getDepartment() != null ? user.getDepartment().getName() : null)
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 

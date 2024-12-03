@@ -75,5 +75,21 @@ public interface ItemRequestService {
      */
     @Transactional(readOnly = true)
     List<ItemRequestDTO> getRequestsByUserIdAndStatus(Long userId, RequestStatus status);
+
+    /**
+     * Approve an item request
+     * @param requestId The ID of the request to approve
+     * @param comments Optional comments from the processor
+     */
+    @Transactional
+    void approveItemRequest(Long requestId, String comments);
+
+    /**
+     * Reject an item request
+     * @param requestId The ID of the request to reject
+     * @param comments Optional comments from the processor
+     */
+    @Transactional
+    void rejectItemRequest(Long requestId, String comments);
 }
 

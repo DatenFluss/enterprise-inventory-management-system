@@ -55,4 +55,11 @@ public interface InventoryManagementService {
      * Check if an item exists by name in an enterprise
      */
     boolean itemExistsByName(String name, Long enterpriseId);
+
+    /**
+     * Get items currently in use by a specific user
+     * @param userId The ID of the user
+     * @return List of items in use by the user
+     */
+    List<ItemDTO> getItemsInUseByUserId(Long userId);
 } 

@@ -4,6 +4,7 @@ import com.enterprise.inventorymanagement.model.RoleName;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,4 +18,7 @@ public class UserDTO {
     private String roleName;
     private Long enterpriseId;
     private Long managerId;
+    private Long departmentId;
+    private String departmentName;
+    private LocalDateTime createdAt;
 }

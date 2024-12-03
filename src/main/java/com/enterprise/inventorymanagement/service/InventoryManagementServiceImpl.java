@@ -138,6 +138,14 @@ public class InventoryManagementServiceImpl implements InventoryManagementServic
     }
 
     @Override
+    public List<ItemDTO> getItemsInUseByUserId(Long userId) {
+        return itemRepository.findAllByUserId(userId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean itemExistsByName(String name, Long enterpriseId) {
         return itemRepository.existsByNameAndEnterpriseId(name, enterpriseId);
     }
@@ -152,6 +160,10 @@ public class InventoryManagementServiceImpl implements InventoryManagementServic
                 .warehouseName(item.getWarehouseName())
                 .departmentId(item.getDepartmentId())
                 .departmentName(item.getDepartmentName())
+                .userId(item.getUser() != null ? item.getUser().getId() : null)
+                .userName(item.getUser() != null ? item.getUser().getFullName() : null)
+                .checkedOutAt(item.getCheckedOutAt())
+                .dueDate(item.getDueDate())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())
                 .build();
