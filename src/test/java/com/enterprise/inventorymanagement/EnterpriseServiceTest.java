@@ -67,17 +67,17 @@ public class EnterpriseServiceTest {
 
         // Create roles
         Role adminRole = new Role();
-        adminRole.setName(RoleName.ADMIN.name());
+        adminRole.setName(RoleName.ROLE_ADMIN);
         adminRole.setPermissions(Set.of(manageEnterprisePermission, viewEnterprisePermission));
         roleRepository.save(adminRole);
 
         Role ownerRole = new Role();
-        ownerRole.setName(RoleName.OWNER.name());
+        ownerRole.setName(RoleName.ROLE_ENTERPRISE_OWNER);
         ownerRole.setPermissions(Set.of(manageEnterprisePermission, viewEnterprisePermission));
         roleRepository.save(ownerRole);
 
         Role employeeRole = new Role();
-        employeeRole.setName(RoleName.EMPLOYEE.name());
+        employeeRole.setName(RoleName.ROLE_EMPLOYEE);
         employeeRole.setPermissions(Set.of(viewEnterprisePermission));
         roleRepository.save(employeeRole);
 
@@ -135,7 +135,7 @@ public class EnterpriseServiceTest {
 
         User owner = userRepository.findByUsername("owner").orElseThrow();
         assertEquals("owner@techcorp.com", owner.getEmail());
-        assertEquals(RoleName.OWNER, owner.getRole().getName());
+        assertEquals(RoleName.ROLE_ENTERPRISE_OWNER, owner.getRole().getName());
         assertEquals(enterprise.getId(), owner.getEnterprise().getId());
     }
 
@@ -211,7 +211,7 @@ public class EnterpriseServiceTest {
         employee.setPassword(passwordEncoder.encode("password"));
         employee.setEmail("employee1@example.com");
         employee.setActive(true);
-        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE.name()).orElseThrow());
+        employee.setRole(roleRepository.findByName(RoleName.ROLE_EMPLOYEE).orElseThrow());
         userRepository.save(employee);
 
         // Act
@@ -236,7 +236,7 @@ public class EnterpriseServiceTest {
         employee.setPassword(passwordEncoder.encode("password"));
         employee.setEmail("employee2@example.com");
         employee.setActive(true);
-        employee.setRole(roleRepository.findByName(RoleName.EMPLOYEE.name()).orElseThrow());
+        employee.setRole(roleRepository.findByName(RoleName.ROLE_EMPLOYEE).orElseThrow());
         employee.setEnterprise(enterprise);
         userRepository.save(employee);
 

@@ -180,6 +180,7 @@ public class UserController {
      * Respond to Enterprise Invite
      */
     @PostMapping("/invites/{inviteId}/{action}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> respondToInvite(
             @PathVariable Long inviteId,
             @PathVariable String action,

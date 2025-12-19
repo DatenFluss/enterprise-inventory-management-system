@@ -1,6 +1,13 @@
 package com.enterprise.inventorymanagement.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -22,17 +29,30 @@ public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
-    @Value("${app.jwtSecret}")
+    @Value("${app.jwtSecret:${JWT_SECRET:}}")
     private String jwtSecret;
 
-    @Value("${app.jwtExpirationMs}")
+    @Value("${app.jwtExpirationMs:${JWT_EXPIRATION_MS:86400000}}")
     private int jwtExpirationMs;
 
     private SecretKey key;
+    private JwtParser jwtParser;
 
     @PostConstruct
     public void init() {
-        key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            throw new IllegalStateException("JWT secret is not configured");
+        }
+
+        byte[] secretBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < 64) {
+            throw new IllegalStateException("JWT secret must be at least 64 bytes (512 bits) for HS512");
+        }
+
+        key = Keys.hmacShaKeyFor(secretBytes);
+        jwtParser = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build();
     }
 
     public String generateToken(Authentication authentication) {
@@ -75,10 +95,7 @@ public class JwtTokenProvider {
     }
 
     public Long getUserIdFromJWT(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(key)
-                .parseClaimsJws(token)
-                .getBody();
+        Claims claims = jwtParser.parseClaimsJws(token).getBody();
 
         Long userId = Long.parseLong(claims.getSubject());
         logger.debug("Extracted user ID from token: {}", userId);
@@ -86,10 +103,7 @@ public class JwtTokenProvider {
     }
 
     public String getUserRoleFromJWT(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(key)
-                .parseClaimsJws(token)
-                .getBody();
+        Claims claims = jwtParser.parseClaimsJws(token).getBody();
 
         String role = claims.get("role", String.class);
         logger.debug("Extracted role from token: {}", role);
@@ -97,10 +111,7 @@ public class JwtTokenProvider {
     }
 
     public Claims getClaimsFromJWT(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(key)
-                .parseClaimsJws(token)
-                .getBody();
+        Claims claims = jwtParser.parseClaimsJws(token).getBody();
         
         logger.debug("Retrieved claims from token:");
         logger.debug("Role: {}", claims.get("role"));
@@ -111,11 +122,8 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String authToken) {
         try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(key)
-                    .parseClaimsJws(authToken)
-                    .getBody();
-            
+            Claims claims = jwtParser.parseClaimsJws(authToken).getBody();
+
             if (claims.get("role") == null) {
                 logger.error("Token validation failed: no role claim");
                 return false;

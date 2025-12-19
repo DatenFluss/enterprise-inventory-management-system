@@ -29,6 +29,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .orElseThrow(() ->
                         new UsernameNotFoundException("User Not Found with username: " + username));
 
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new UsernameNotFoundException("User is disabled");
+        }
+
         // Force loading of permissions within transaction
         int permissionCount = user.getRole().getPermissions().size();
         logger.debug("Loaded {} permissions for user {}", permissionCount, username);
@@ -44,6 +48,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserById(Long id) throws UsernameNotFoundException {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User Not Found with id: " + id));
+
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new UsernameNotFoundException("User is disabled");
+        }
 
         // Force loading of permissions within transaction
         int permissionCount = user.getRole().getPermissions().size();

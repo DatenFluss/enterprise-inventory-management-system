@@ -270,13 +270,17 @@ public class UserServiceImpl extends ServiceCommon implements UserService {
         EnterpriseInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
-        //if (!invite.getUserId().equals(userId)) {
-        //    throw new AccessDeniedException("Not authorized to handle this invite");
-        //}
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!invite.getEmail().equalsIgnoreCase(user.getEmail())) {
+            throw new AccessDeniedException("Not authorized to handle this invite");
+        }
 
         if (accepted) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            if (user.getEnterprise() != null) {
+                throw new AccessDeniedException("User already belongs to an enterprise");
+            }
 
             Enterprise enterprise = enterpriseRepository.findById(invite.getEnterpriseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Enterprise not found"));

@@ -1,7 +1,11 @@
 package com.enterprise.inventorymanagement;
 
 import com.enterprise.inventorymanagement.model.*;
-import com.enterprise.inventorymanagement.model.request.ItemRequest;
+import com.enterprise.inventorymanagement.model.Enterprise;
+import com.enterprise.inventorymanagement.model.Warehouse;
+import com.enterprise.inventorymanagement.model.Department;
+import com.enterprise.inventorymanagement.model.dto.ItemRequestDTO;
+import com.enterprise.inventorymanagement.model.dto.RequestItemDTO;
 import com.enterprise.inventorymanagement.model.request.RequestStatus;
 import com.enterprise.inventorymanagement.repository.*;
 import com.enterprise.inventorymanagement.service.ItemRequestService;
@@ -51,7 +55,20 @@ class UserServiceTest {
     private ItemRequestRepository itemRequestRepository;
 
     @Autowired
+    private EnterpriseRepository enterpriseRepository;
+
+    @Autowired
+    private WarehouseRepository warehouseRepository;
+
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
+
+    private Enterprise enterprise;
+    private Warehouse warehouse;
+    private Department department;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +76,9 @@ class UserServiceTest {
         itemRequestRepository.deleteAll();
         inventoryItemRepository.deleteAll();
         userRepository.deleteAll();
+        departmentRepository.deleteAll();
+        warehouseRepository.deleteAll();
+        enterpriseRepository.deleteAll();
         roleRepository.deleteAll();
         permissionRepository.deleteAll();
 
@@ -74,14 +94,31 @@ class UserServiceTest {
 
         // Create roles
         Role managerRole = new Role();
-        managerRole.setName(RoleName.MANAGER.name());
+        managerRole.setName(RoleName.ROLE_MANAGER);
         managerRole.setPermissions(Set.of(deactivateNonPrivilegedUserPermission));
         roleRepository.save(managerRole);
 
         Role employeeRole = new Role();
-        employeeRole.setName(RoleName.EMPLOYEE.name());
+        employeeRole.setName(RoleName.ROLE_EMPLOYEE);
         employeeRole.setPermissions(Set.of(requestItemPermission, viewAvailableItemsPermission));
         roleRepository.save(employeeRole);
+
+        enterprise = new Enterprise();
+        enterprise.setName("Test Enterprise");
+        enterprise.setAddress("123 Test");
+        enterprise.setContactEmail("contact@test.com");
+        enterpriseRepository.save(enterprise);
+
+        warehouse = new Warehouse();
+        warehouse.setName("Main Warehouse");
+        warehouse.setLocation("HQ");
+        warehouse.setEnterprise(enterprise);
+        warehouseRepository.save(warehouse);
+
+        department = new Department();
+        department.setName("IT");
+        department.setEnterprise(enterprise);
+        departmentRepository.save(department);
 
         // Create users
         User manager = new User();
@@ -90,6 +127,7 @@ class UserServiceTest {
         manager.setEmail("manager@example.com");
         manager.setActive(true);
         manager.setRole(managerRole);
+        manager.setEnterprise(enterprise);
         userRepository.save(manager);
 
         User employee = new User();
@@ -98,6 +136,8 @@ class UserServiceTest {
         employee.setEmail("employee@example.com");
         employee.setActive(true);
         employee.setRole(employeeRole);
+        employee.setEnterprise(enterprise);
+        employee.setDepartment(department);
         userRepository.save(employee);
 
         // Authenticate as manager by default
@@ -140,11 +180,7 @@ class UserServiceTest {
         userRepository.save(anotherManager);
 
         // Act & Assert
-        AccessDeniedException exception = assertThrows(AccessDeniedException.class, () -> {
-            userService.deactivateUser(anotherManager.getId());
-        });
-
-        assertEquals("Access Denied", exception.getMessage());
+        assertThrows(AccessDeniedException.class, () -> userService.deactivateUser(anotherManager.getId()));
     }
 
     @Test
@@ -157,20 +193,29 @@ class UserServiceTest {
         item.setName("Laptop");
         item.setDescription("Dell XPS 13");
         item.setQuantity(10);
+        item.setEnterprise(enterprise);
+        item.setWarehouse(warehouse);
         inventoryItemRepository.save(item);
 
+        ItemRequestDTO requestDTO = ItemRequestDTO.builder()
+                .warehouseId(warehouse.getId())
+                .departmentId(department.getId())
+                .comments("Need for new project")
+                .requestItems(List.of(RequestItemDTO.builder()
+                        .itemId(item.getId())
+                        .quantity(2)
+                        .build()))
+                .build();
+
         // Act
-        itemRequestService.requestItem(item.getId(), 2, "Need for new project");
+        ItemRequestDTO result = itemRequestService.createItemRequest(employee.getId(), requestDTO);
 
         // Assert
-        List<ItemRequest> requests = itemRequestRepository.findAll();
-        assertEquals(1, requests.size(), "There should be one item request");
-
-        ItemRequest request = requests.get(0);
-        assertEquals(employee.getId(), request.getRequester().getId());
-        assertEquals(item.getId(), request.getInventoryItem().getId());
-        assertEquals(2, request.getQuantity());
-        assertEquals(RequestStatus.PENDING, request.getStatus());
+        assertEquals(employee.getId(), result.getRequesterId());
+        assertEquals(RequestStatus.PENDING, result.getStatus());
+        assertEquals(1, result.getRequestItems().size());
+        RequestItemDTO createdItem = result.getRequestItems().get(0);
+        assertEquals(item.getId(), createdItem.getItemId());
+        assertEquals(2, createdItem.getQuantity());
     }
 }
-

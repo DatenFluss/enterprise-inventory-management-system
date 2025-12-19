@@ -34,10 +34,11 @@ public class UserDetailsImpl implements UserDetails {
     private final String departmentName;
     private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
+    private final boolean active;
 
     public UserDetailsImpl(Long id, String username, String fullName, String email, String password, 
                          Long enterpriseId, Long departmentId, String departmentName, String role, 
-                         Collection<? extends GrantedAuthority> authorities) {
+                         Collection<? extends GrantedAuthority> authorities, boolean active) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -48,6 +49,7 @@ public class UserDetailsImpl implements UserDetails {
         this.departmentName = departmentName;
         this.role = role;
         this.authorities = authorities;
+        this.active = active;
         logger.debug("Created UserDetailsImpl - username: {}, role: {}, departmentId: {}, authorities: {}", 
             username, role, departmentId, authorities);
     }
@@ -85,7 +87,8 @@ public class UserDetailsImpl implements UserDetails {
                 user.getDepartment() != null ? user.getDepartment().getId() : null,
                 user.getDepartment() != null ? user.getDepartment().getName() : null,
                 roleAuthority,
-                authorities
+                authorities,
+                Boolean.TRUE.equals(user.getActive())
         );
     }
 
@@ -111,7 +114,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return active;
     }
 
     @Override
